@@ -2,7 +2,7 @@
 转录数据解析器模块
 
 负责解析来自不同ASR（自动语音识别）服务商的JSON输出格式。
-支持 ElevenLabs、Whisper、Deepgram、AssemblyAI 等多种数据源。
+支持 ElevenLabs、Whisper、Deepgram、AssemblyAI、Gemini Transcribe 等多种数据源。
 提供统一的接口将不同格式的转录数据转换为内部标准格式。
 
 作者: fuxiaomoke
@@ -10,6 +10,7 @@
 """
 
 from typing import List, Optional, Literal
+import re
 import traceback
 # Corrected import: removed 'src.' prefix, or use relative if preferred for sibling modules
 from core.data_models import TimestampedWord, ParsedTranscription
@@ -28,17 +29,29 @@ class TranscriptionParser:
         else:
             print(f"[Parser] {message}") # 如果没有信号转发器，则打印到控制台
 
-    def parse(self, data: dict, source_format: Literal["elevenlabs", "whisper", "deepgram", "assemblyai", "soniox", "elevenlabs_api"]) -> Optional[ParsedTranscription]:
+    @staticmethod
+    def is_gemini_transcribe(data) -> bool:
+        """是否为 Gemini Transcribe 导出的 JSON（顶层 app 字段带 Gemini，且有 words 列表）。"""
+        return (isinstance(data, dict) and "gemini" in str(data.get("app", "")).lower()
+                and isinstance(data.get("words"), list))
+
+    def parse(self, data: dict, source_format: Literal["elevenlabs", "whisper", "deepgram", "assemblyai", "soniox", "elevenlabs_api", "gemini"]) -> Optional[ParsedTranscription]:
         """
         解析JSON数据。
         :param data: 包含ASR结果的字典。
         :param source_format: JSON的来源格式。
         :return: 解析后的转录数据对象，或在失败时返回None。
         """
+        # Gemini 的 JSON 和 ElevenLabs 长得很像，选错格式也能“解析成功”，但日文会被空格拆开、语言码也识别不了，
+        # 所以只要认出是 Gemini Transcribe 的输出，就按 Gemini 格式解析
+        if source_format != "gemini" and self.is_gemini_transcribe(data):
+            self.log(f"检测到 Gemini Transcribe 输出（当前选择的是 {source_format}），自动改用 Gemini 格式解析。")
+            source_format = "gemini"
         self.log(f"开始解析 {source_format.capitalize()} JSON...")
         result: Optional[ParsedTranscription] = None
         try:
-            if source_format == "elevenlabs": result = self._parse_elevenlabs(data)
+            if source_format == "gemini": result = self._parse_gemini(data)
+            elif source_format == "elevenlabs": result = self._parse_elevenlabs(data)
             elif source_format == "elevenlabs_api": result = self._parse_elevenlabs_api(data)
             elif source_format == "soniox": result = self._parse_soniox(data)
             elif source_format == "whisper": result = self._parse_whisper(data)
@@ -269,6 +282,91 @@ class TranscriptionParser:
             self.log(f"错误: 解析 Soniox JSON 时出现异常: {e}")
             traceback.print_exc()
             return None
+
+    @staticmethod
+    def _join_words(parts: List[str]) -> str:
+        """把词拼回整段：拉丁字母/数字之间补空格，中日韩直接相连（不会把日文拆成「起き ちゃっ た」）。"""
+        def latin(ch: str) -> bool:
+            return bool(ch) and ch.isascii() and ch.isalnum()
+        out = ""
+        for p in parts:
+            if not p:
+                continue
+            if not out:
+                out = p.lstrip()
+            elif p[:1].isspace() or out[-1:].isspace():
+                out += p
+            elif latin(out[-1]) and latin(p[0]):
+                out += " " + p
+            else:
+                out += p
+        return re.sub(r"\s+", " ", out).strip()
+
+    @staticmethod
+    def _normalize_language(code) -> Optional[str]:
+        """BCP-47 → 下游能识别的短码：ja-JP → ja，ko-KR → ko，en-US → en；中文保留 zh-xx（下游按 zh 前缀判断）。"""
+        if not code:
+            return None
+        code = str(code).strip().replace("_", "-").lower()
+        if code.startswith("zh"):
+            return code
+        return code.split("-")[0] or None
+
+    def _parse_gemini(self, data: dict) -> Optional[ParsedTranscription]:
+        """解析 Gemini Transcribe 导出的 JSON。
+
+        结构：顶层 words[]（text / start / end / speaker / chunk，时间单位秒），
+        另有句级 segments[]、language（如 "ja-JP"）、speakers、failures（转录失败的分块）。
+        断句交给 LLM，所以这里只取逐词时间戳；segments 仅在没有 words 时兜底。"""
+        parsed_words: List[TimestampedWord] = []
+        skipped = 0
+        for word_info in data.get("words", []) or []:
+            if not isinstance(word_info, dict):
+                skipped += 1
+                continue
+            text = word_info.get("text", word_info.get("word"))
+            start, end = word_info.get("start"), word_info.get("end")
+            speaker = word_info.get("speaker", word_info.get("speaker_id"))
+            if text is None or not str(text).strip() or start is None or end is None:
+                skipped += 1
+                continue
+            try:
+                s, e = float(start), float(end)
+            except (TypeError, ValueError):
+                skipped += 1
+                continue
+            # Gemini 的时间戳是 0.1 秒精度，偶尔有 end == start 甚至略早的情况，这里保证不倒挂
+            parsed_words.append(TimestampedWord(str(text), s, max(s, e), str(speaker) if speaker is not None else None))
+        if skipped:
+            self.log(f"警告: 跳过 {skipped} 个不完整的 Gemini 词条。")
+
+        if not parsed_words:
+            # 没有逐词时间戳时，退而用句级 segments（每句当作一个“词”，仍可生成字幕，只是切分粒度粗）
+            for seg in data.get("segments", []) or []:
+                try:
+                    text = str(seg.get("text", "")).strip()
+                    if text:
+                        s = float(seg["start"]); e = float(seg["end"])
+                        parsed_words.append(TimestampedWord(text, s, max(s, e)))
+                except (KeyError, TypeError, ValueError):
+                    continue
+            if parsed_words:
+                self.log("警告: Gemini JSON 没有逐词时间戳，改用句级 segments，字幕时间精度会降低。")
+            else:
+                self.log("错误: Gemini JSON 中既没有 words 也没有可用的 segments。")
+                return None
+
+        parsed_words.sort(key=lambda w: w.start_time)
+        failures = data.get("failures") or []
+        if failures:
+            self.log(f"警告: Gemini 转录有 {len(failures)} 个分块失败，对应时间段可能没有字幕: {failures}")
+
+        full_text = data.get("text") or self._join_words([w.text for w in parsed_words])
+        language = self._normalize_language(data.get("language") or data.get("language_code"))
+        speakers = {w.speaker_id for w in parsed_words if w.speaker_id}
+        self.log(f"Gemini 解析完成: {len(parsed_words)} 个词，语言: {language or '未知'}，"
+                 f"说话人: {len(speakers) or 1}，模型: {data.get('model', '未知')}")
+        return ParsedTranscription(words=parsed_words, full_text=full_text, language_code=language)
 
     def _parse_elevenlabs_api(self, data: dict) -> Optional[ParsedTranscription]:
         """解析 ElevenLabs 官方API 格式的JSON。"""

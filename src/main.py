@@ -11,6 +11,14 @@ import os
 if os.path.dirname(__file__) not in sys.path:
     sys.path.insert(0, os.path.dirname(__file__))
 
+# GBK 控制台下 print 带 ℹ 等符号会在槽函数里抛错，PyQt6 会直接 abort
+for _s in (sys.stdout, sys.stderr):
+    try:
+        if _s is not None and hasattr(_s, "reconfigure"):
+            _s.reconfigure(errors="replace")
+    except Exception:
+        pass
+
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, qInstallMessageHandler, QtMsgType
@@ -36,7 +44,12 @@ def qt_message_handler(mode, _context, message):
         sys.exit(1)
 
 from utils.file_utils import resource_path, setup_faulthandler
-from ui.main_window import HealJimakuApp
+
+# 默认走新界面；想临时切回旧界面：set HEAL_JIMAKU_LEGACY_UI=1
+if os.environ.get("HEAL_JIMAKU_LEGACY_UI") == "1":
+    from ui.main_window import HealJimakuApp
+else:
+    from ui.modern_main_window import ModernHealJimakuApp as HealJimakuApp
 
 if __name__ == "__main__":
     try:

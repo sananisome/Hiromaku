@@ -13,9 +13,15 @@ from PyQt6.QtGui import QIcon, QPixmap, QFont, QColor
 
 import config
 from ui.custom_widgets import CustomLabel, CustomLabel_title
+from ui import theme
 from utils.file_utils import resource_path
 
 ICON_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "assets", "info_icon.png"))
+
+
+def _label_font(point_size: int, bold: bool = True) -> QFont:
+    """用应用默认字体族构造标签字体（不硬编码字体名；具体字体由 ui.theme 决定）"""
+    return theme.label_font(point_size, bold)
 
 class LlmTestWorker(QObject):
     """LLM连接测试工作线程，负责异步测试API连接状态"""
@@ -181,8 +187,8 @@ class LlmAdvancedSettingsDialog(QDialog):
         self.thinking_value_label: Optional[QLabel] = None
 
         # 描边颜色设置 (与主窗口一致)
-        self.target_main_color = QColor(92, 138, 111)
-        self.target_stroke_color = QColor(242, 234, 218)
+        self.target_main_color = QColor(theme.TITLE_MAIN)
+        self.target_stroke_color = QColor(theme.TITLE_STROKE)
 
         self.setWindowTitle("LLM高级设置")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
@@ -245,8 +251,8 @@ class LlmAdvancedSettingsDialog(QDialog):
         # 创建标题栏
         title_bar_layout = QHBoxLayout()
         title_label = CustomLabel_title("LLM高级管理")
-        title_label.setCustomColors(main_color="#4A7CB3", stroke_color=self.target_stroke_color)  # 改为蓝色
-        # 不再重复设置字体，让CustomLabel_title类自己处理楷体字体
+        title_label.setCustomColors(main_color=theme.TITLE_MAIN, stroke_color=self.target_stroke_color)
+        # 字体由主题统一处理，此处不单独设置
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # 使用自定义圆形关闭按钮图片
@@ -326,8 +332,8 @@ class LlmAdvancedSettingsDialog(QDialog):
 
         # 列表标题 - 使用与主窗口日志标题相同的颜色样式
         list_title = CustomLabel("模型配置列表")
-        list_title.setCustomColors(main_color="#B34A4A", stroke_color=self.target_stroke_color)
-        title_font = QFont('楷体', 15, QFont.Weight.Bold)
+        list_title.setCustomColors(main_color=theme.ACCENT, stroke_color=self.target_stroke_color)
+        title_font = _label_font(15)
         list_title.setFont(title_font)
         panel_layout.addWidget(list_title)
 
@@ -426,7 +432,7 @@ class LlmAdvancedSettingsDialog(QDialog):
 
         # 配置名称 - 使用CustomLabel保持与主界面一致
         profile_name_label = CustomLabel("配置名称:")
-        profile_name_label.setFont(QFont('楷体', 14, QFont.Weight.Bold))
+        profile_name_label.setFont(_label_font(14))
         profile_name_label.setMinimumHeight(36)  # 设置与输入框相同的最小高度
         profile_name_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)  # 确保标签垂直居中右对齐
         self.profile_name_edit = QLineEdit()
@@ -443,7 +449,7 @@ class LlmAdvancedSettingsDialog(QDialog):
         self.api_format_combo.setToolTip("选择API格式：\n• OpenAI兼容：/v1/chat/completions (DeepSeek, OpenAI等)\n• Claude格式：/v1/messages (Anthropic Claude等)\n• Gemini格式：/v1beta/models/{model}:generateContent (Google Gemini等)\n• 自动检测：根据URL自动推断格式")
 
         self.api_format_label = CustomLabel("API格式:")
-        self.api_format_label.setFont(QFont('楷体', 14, QFont.Weight.Bold))
+        self.api_format_label.setFont(_label_font(14))
         self.api_format_label.setMinimumHeight(36)
         self.api_format_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
         config_form.addRow(self.api_format_label, self.api_format_combo)
@@ -452,26 +458,13 @@ class LlmAdvancedSettingsDialog(QDialog):
         self.api_url_edit = QLineEdit()
         self.api_url_edit.setMinimumHeight(36)
         self.api_url_edit.setCursorPosition(0)  # 确保光标可见
-        self.api_url_edit.setStyleSheet("""
-            QLineEdit {
-                color: #FFFFFF;
-                font-size: 13pt;
-                background-color: rgba(255, 255, 255, 60);
-                border: 1px solid rgba(120, 195, 225, 140);
-                border-radius: 6px;
-                padding: 10px 10px;
-            }
-            QLineEdit:focus {
-                border: 2px solid rgba(120, 195, 225, 220);
-                background-color: rgba(255, 255, 255, 80);
-            }
-        """)
+        self.api_url_edit.setStyleSheet(theme.line_edit_qss(font_size=13))
 
         # 设置动态悬浮提示
         self._update_api_url_tooltip()
 
         api_url_label = CustomLabel("API地址:")
-        api_url_label.setFont(QFont('楷体', 14, QFont.Weight.Bold))
+        api_url_label.setFont(_label_font(14))
         api_url_label.setMinimumHeight(36)  # 设置与输入框相同的最小高度
         api_url_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)  # 确保标签垂直居中右对齐
         config_form.addRow(api_url_label, self.api_url_edit)
@@ -494,7 +487,7 @@ class LlmAdvancedSettingsDialog(QDialog):
         model_layout.addWidget(self.fetch_models_button, 1)
 
         model_label = CustomLabel("模型:")
-        model_label.setFont(QFont('楷体', 14, QFont.Weight.Bold))
+        model_label.setFont(_label_font(14))
         model_label.setMinimumHeight(36)  # 设置与输入框相同的最小高度
         model_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)  # 确保标签垂直居中右对齐
         config_form.addRow(model_label, model_layout)
@@ -508,20 +501,7 @@ class LlmAdvancedSettingsDialog(QDialog):
         self.api_key_edit.setMinimumHeight(42)  # 增加高度
         self.api_key_edit.setFixedHeight(42)
         self.api_key_edit.setCursorPosition(0)  # 确保光标可见
-        self.api_key_edit.setStyleSheet("""
-            QLineEdit {
-                color: #FFFFFF;
-                font-size: 13pt;
-                background-color: rgba(255, 255, 255, 60);
-                border: 1px solid rgba(120, 195, 225, 140);
-                border-radius: 6px;
-                padding: 11px 10px;
-            }
-            QLineEdit:focus {
-                border: 2px solid rgba(120, 195, 225, 220);
-                background-color: rgba(255, 255, 255, 80);
-            }
-        """)
+        self.api_key_edit.setStyleSheet(theme.line_edit_qss(font_size=13))
         api_key_layout.addWidget(self.api_key_edit)
 
         # 眼睛图标按钮
@@ -535,7 +515,7 @@ class LlmAdvancedSettingsDialog(QDialog):
         api_key_layout.addWidget(self.api_key_toggle)
 
         api_key_label = CustomLabel("API Key:")
-        api_key_label.setFont(QFont('楷体', 14, QFont.Weight.Bold))
+        api_key_label.setFont(_label_font(14))
         api_key_label.setMinimumHeight(42)  # API Key输入框是42px高度
         api_key_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)  # 确保标签垂直居中右对齐
         config_form.addRow(api_key_label, api_key_layout)
@@ -555,21 +535,21 @@ class LlmAdvancedSettingsDialog(QDialog):
         self.temperature_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.temperature_value_label.setMinimumHeight(32)
         self.temperature_value_label.setObjectName("temperatureValueLabel")
-        self.temperature_value_label.setStyleSheet("""
-            QLabel#temperatureValueLabel {
-                color: white;
+        self.temperature_value_label.setStyleSheet(f"""
+            QLabel#temperatureValueLabel {{
+                color: {theme.TEXT_PRIMARY};
                 font-size: 13pt;
                 font-weight: bold;
                 background: transparent;
-            }
-            QLabel#temperatureValueLabel:disabled {
-                color: rgba(160, 160, 160, 120);
-            }
-        """)  # 设置为白色
+            }}
+            QLabel#temperatureValueLabel:disabled {{
+                color: {theme.BTN_DISABLED_TEXT};
+            }}
+        """)
         temp_layout.addWidget(self.temperature_slider, 4)
         temp_layout.addWidget(self.temperature_value_label, 1)
         temp_label = CustomLabel("温度:")
-        temp_label.setFont(QFont('楷体', 14, QFont.Weight.Bold))
+        temp_label.setFont(_label_font(14))
         temp_label.setMinimumHeight(36)  # 设置与滑块相同的最小高度
         temp_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)  # 确保标签垂直居中右对齐
         config_form.addRow(temp_label, temp_layout)
@@ -589,18 +569,18 @@ class LlmAdvancedSettingsDialog(QDialog):
         self.thinking_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.thinking_value_label.setMinimumHeight(32)
         self.thinking_value_label.setObjectName("thinkingValueLabel")
-        self.thinking_value_label.setStyleSheet("""
-            QLabel#thinkingValueLabel {
-                color: white !important;
+        self.thinking_value_label.setStyleSheet(f"""
+            QLabel#thinkingValueLabel {{
+                color: {theme.TEXT_PRIMARY};
                 font-size: 13pt;
                 font-weight: bold;
                 background: transparent;
-            }
+            }}
         """)
         thinking_layout.addWidget(self.thinking_slider, 4)
         thinking_layout.addWidget(self.thinking_value_label, 1)
         thinking_label = CustomLabel("思考模式:")
-        thinking_label.setFont(QFont('楷体', 14, QFont.Weight.Bold))
+        thinking_label.setFont(_label_font(14))
         thinking_label.setMinimumHeight(36)
         thinking_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
         config_form.addRow(thinking_label, thinking_layout)
@@ -686,342 +666,76 @@ class LlmAdvancedSettingsDialog(QDialog):
 
     def _apply_styles(self):
         """应用样式 - 优化颜色和字体，提升可读性和美观度"""
-        # 获取箭头图标路径
-        qss_image_up_arrow = "none"
-        qss_image_down_arrow = "none"
-        up_arrow_path_str = resource_path('up_arrow.png')
-        down_arrow_path_str = resource_path('dropdown_arrow.png')
+        light_arrow = theme.qss_url("dropdown_arrow_light.png")
+        arrow_path_str = resource_path('dropdown_arrow.png')
+        qss_image_down_arrow = (f"url('{arrow_path_str.replace(os.sep, '/')}')"
+                                if arrow_path_str and os.path.exists(arrow_path_str) else "none")
 
-        if up_arrow_path_str and os.path.exists(up_arrow_path_str):
-            qss_image_up_arrow = f"url('{up_arrow_path_str.replace(os.sep, '/')}')"
-        if down_arrow_path_str and os.path.exists(down_arrow_path_str):
-            qss_image_down_arrow = f"url('{down_arrow_path_str.replace(os.sep, '/')}')"
-
-        style = f"""
-            QWidget#llmSettingsDialogContainer {{
-                background-color: rgba(60, 60, 80, 220);
-                border-radius: 10px;
-            }}
-            CustomLabel {{
-                background-color: transparent;
-            }}
-            QPushButton {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(85, 180, 212, 180), stop:1 rgba(65, 140, 190, 200));
-                color: white;
-                border: 1px solid rgba(120, 195, 225, 150);
-                border-radius: 8px;
-                font-family: '楷体'; font-weight: bold; font-size: 13pt;
-                padding: 10px 20px;
-                min-width: 80px;
-            }}
-            QPushButton:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(105, 200, 232, 220), stop:1 rgba(85, 160, 210, 230));
-                border: 1px solid rgba(140, 215, 245, 200);
-            }}
-            QPushButton:pressed {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(65, 160, 192, 180), stop:1 rgba(45, 120, 170, 200));
-            }}
-
+        style = "\n".join([
+            theme.dialog_container_qss("llmSettingsDialogContainer"),
+            "CustomLabel { background-color: transparent; }",
+            theme.button_qss("neutral", font_size=13, padding="10px 20px", radius=8),
+            theme.button_qss("primary", sel="QPushButton#dialogSaveButton",
+                             font_size=14, padding="8px 20px", radius=8),
+            theme.button_qss("neutral", sel="QPushButton#dialogCancelButton",
+                             font_size=14, padding="8px 20px", radius=8),
+            theme.button_qss("neutral", sel="QPushButton#apiKeyToggle",
+                             font_size=11, padding="0px", radius=8),
+            theme.button_qss("neutral", sel="QPushButton#templateButton",
+                             font_size=11, padding="8px 16px"),
+            theme.button_qss("neutral", sel="QPushButton#setDefaultButton",
+                             font_size=11, padding="8px 16px"),
+            theme.button_qss("success", sel="QPushButton#addProfileButton",
+                             font_size=11, padding="8px 16px"),
+            theme.button_qss("danger", sel="QPushButton#deleteProfileButton",
+                             font_size=11, padding="8px 16px"),
+            theme.button_qss("neutral", sel="QPushButton#testConnectionButton",
+                             font_size=13, padding="8px 16px"),
+            theme.button_qss("neutral", sel="QPushButton#fetchModelsButton",
+                             font_size=11, padding="8px 16px"),
+            f"""
             QPushButton#dialogCloseButton {{
-                background: rgba(255, 99, 71, 120);
-                border: none;
-                border-radius: 15px;
-                padding: 0px;
-                min-width: 30px; max-width:30px;
-                min-height:30px; max-height:30px;
+                background-color: {theme.CLOSE_BG}; color: {theme.CLOSE_FG};
+                border: none; border-radius: 15px;
+                font-weight: bold; font-size: 13pt;
+                padding: 0px; min-width: 30px; max-width: 30px;
+                min-height: 30px; max-height: 30px;
             }}
-            QPushButton#dialogCloseButton:hover {{
-                background: rgba(255, 69, 58, 180);
-                border-radius: 15px;
+            QPushButton#dialogCloseButton:hover {{ background-color: {theme.CLOSE_HOVER_BG}; color: {theme.CLOSE_HOVER_FG}; }}
+            """,
+            theme.slider_qss(with_disabled=True),
+            theme.spinbox_qss(font_size=13, up_url=light_arrow, down_url=light_arrow),
+            theme.line_edit_qss(font_size=13),
+            theme.combo_qss(arrow_url=light_arrow, font_size=13),
+            f"""
+            QTextEdit {{
+                background-color: {theme.LOG_BG}; color: {theme.TEXT_PRIMARY};
+                border: 1px solid {theme.INPUT_BORDER}; border-radius: 6px;
+                font-size: 13pt; padding: 8px;
             }}
-
-            QPushButton#apiKeyToggle {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(150, 150, 150, 160), stop:1 rgba(120, 120, 120, 170));
-                border: 1px solid rgba(170, 170, 170, 140);
-                border-radius: 8px;
-                font-size: 11pt;
-                padding: 8px 16px;
-                margin-top: 3px;
-            }}
-            QPushButton#apiKeyToggle:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(170, 170, 170, 190), stop:1 rgba(140, 140, 140, 200));
-            }}
-
-            QPushButton#dialogSaveButton {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(75, 185, 125, 200), stop:1 rgba(55, 155, 105, 210));
-                border: 1px solid rgba(95, 205, 145, 180);
-                font-size: 14pt;
-            }}
-            QPushButton#dialogSaveButton:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(95, 205, 145, 230), stop:1 rgba(75, 175, 125, 240));
-            }}
-
-            QPushButton#dialogCancelButton {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(180, 120, 90, 180), stop:1 rgba(160, 100, 70, 190));
-                border: 1px solid rgba(200, 140, 110, 150);
-                font-size: 14pt;
-            }}
-            QPushButton#dialogCancelButton:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(200, 140, 110, 210), stop:1 rgba(180, 120, 90, 220));
-            }}
-
-            QPushButton#templateButton, QPushButton#setDefaultButton {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(95, 155, 195, 160), stop:1 rgba(75, 125, 165, 170));
-                font-size: 11pt;
-                padding: 8px 16px;
-            }}
-            QPushButton#templateButton:hover, QPushButton#setDefaultButton:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(115, 175, 215, 200), stop:1 rgba(95, 145, 185, 210));
-            }}
-
-            QPushButton#addProfileButton {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(75, 185, 125, 200), stop:1 rgba(55, 155, 105, 210));
-                font-size: 11pt;
-                padding: 8px 16px;
-                border: 1px solid rgba(95, 205, 145, 180);
-            }}
-            QPushButton#addProfileButton:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(95, 205, 145, 230), stop:1 rgba(75, 175, 125, 240));
-                border: 1px solid rgba(115, 225, 165, 200);
-            }}
-
-            QPushButton#deleteProfileButton {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(180, 80, 80, 200), stop:1 rgba(160, 60, 60, 210));
-                font-size: 11pt;
-                padding: 8px 16px;
-                border: 1px solid rgba(200, 100, 100, 180);
-            }}
-            QPushButton#deleteProfileButton:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(200, 100, 100, 230), stop:1 rgba(180, 80, 80, 240));
-                border: 1px solid rgba(220, 120, 120, 200);
-            }}
-
-            QPushButton#testConnectionButton {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(255, 185, 65, 180), stop:1 rgba(235, 155, 45, 190));
-                border: 1px solid rgba(255, 205, 125, 160);
-                font-size: 13pt;
-            }}
-            QPushButton#testConnectionButton:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(255, 205, 85, 210), stop:1 rgba(235, 175, 65, 220));
-            }}
-
-            QPushButton#fetchModelsButton {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(150, 150, 150, 160), stop:1 rgba(120, 120, 120, 170));
-                border: 1px solid rgba(170, 170, 170, 140);
-                font-size: 11pt;
-            }}
-            QPushButton#fetchModelsButton:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(170, 170, 170, 190), stop:1 rgba(140, 140, 140, 200));
-            }}
-
-            QSlider::groove:horizontal {{
-                border: 1px solid rgba(140, 140, 140, 180);
-                background: rgba(255, 255, 255, 80);
-                height: 12px;
-                border-radius: 6px;
-            }}
-            QSlider::handle:horizontal {{
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #B0B0B0, stop:1 #808080);
-                border: 2px solid #606060;
-                width: 24px;
-                margin: -6px 0;
-                border-radius: 12px;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 rgba(75, 185, 125, 180), stop:1 rgba(85, 195, 220, 190));
-                border: 1px solid rgba(140, 140, 140, 180);
-                height: 12px;
-                border-radius: 6px;
-            }}
-            QSlider::groove:horizontal:disabled {{
-                background: rgba(180, 180, 180, 60);
-                border: 1px solid rgba(140, 140, 140, 100);
-            }}
-            QSlider::handle:horizontal:disabled {{
-                background: rgba(160, 160, 160, 120);
-                border: 2px solid rgba(120, 120, 120, 100);
-            }}
-            QSlider::sub-page:horizontal:disabled {{
-                background: rgba(160, 160, 160, 80);
-                border: 1px solid rgba(140, 140, 140, 100);
-            }}
-
-            QSpinBox, QDoubleSpinBox {{
-                background-color: rgba(255, 255, 255, 60);
-                color: #F5F5F5;
-                border: 1px solid rgba(120, 195, 225, 140);
-                border-radius: 6px;
-                font-family: '楷体';
-                font-size: 13pt;
-                min-height: 36px;
-                padding-top: 3px;
-                padding-bottom: 3px;
-                padding-left: 10px;
-                padding-right: 5px;
-            }}
-
-            QLineEdit, QComboBox, QTextEdit {{
-                background-color: rgba(255, 255, 255, 60);
-                color: #F5F5F5;
-                border: 1px solid rgba(120, 195, 225, 140);
-                border-radius: 6px;
-                font-family: '楷体';
-                font-size: 13pt;
-                padding: 12px 10px;
-                min-height: 22px;
-                selection-background-color: rgba(120, 195, 225, 200);
-                line-height: 1.2;
-            }}
-
-            QLineEdit {{
-                color: #FFFFFF;
-                selection-background-color: rgba(120, 195, 225, 200);
-            }}
-
-            QLineEdit:focus, QComboBox:focus, QTextEdit:focus {{
-                border: 2px solid rgba(120, 195, 225, 220);
-                background-color: rgba(255, 255, 255, 80);
-            }}
-
-            QComboBox::drop-down {{
-                subcontrol-origin: padding;
-                width: 30px;
-                border-left: 1px solid rgba(120, 195, 225, 140);
-                border-top-right-radius: 6px;
-                border-bottom-right-radius: 6px;
-                background-color: rgba(120, 195, 225, 120);
-            }}
-
-            QComboBox::down-arrow {{
-                image: {qss_image_down_arrow};
-                width: 12px;
-                height: 12px;
-            }}
-
-            QComboBox QAbstractItemView {{
-                background-color: rgba(50, 55, 70, 250);
-                color: #F5F5F5;
-                border: 1px solid rgba(120, 195, 225, 140);
-                border-radius: 6px;
-                selection-background-color: rgba(120, 195, 225, 200);
-                font-family: '楷体';
-                font-size: 12pt;
-                padding: 5px;
-            }}
-
             QListWidget#profileList {{
-                border: 1px solid rgba(120, 195, 225, 140);
-                border-radius: 6px;
-                padding: 8px;
-                background-color: rgba(255, 255, 255, 60);
-                font-family: '楷体';
-                font-size: 13pt;
-                outline: none;
+                border: 1px solid {theme.INPUT_BORDER}; border-radius: 6px;
+                padding: 8px; background-color: {theme.INPUT_BG};
+                font-size: 13pt; outline: none;
             }}
-
             QListWidget#profileList::item {{
-                padding: 12px 10px;
-                margin: 3px 0;
-                border-radius: 6px;
-                color: #F5F5F5;
-                background-color: transparent;
-                outline: none;
-                border: none;
+                padding: 12px 10px; margin: 3px 0; border-radius: 6px;
+                color: {theme.TEXT_PRIMARY}; background-color: transparent;
+                outline: none; border: none;
             }}
-
             QListWidget#profileList::item:selected {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(120, 195, 225, 200), stop:1 rgba(85, 160, 190, 180));
-                color: white;
+                background: {theme.POPUP_SELECTION}; color: {theme.ON_SELECTION};
             }}
-
-            QListWidget#profileList::item:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(120, 195, 225, 120), stop:1 rgba(85, 160, 190, 100));
-            }}
-
-            QGroupBox {{
-                font-weight: bold;
-                font-size: 16px;
-                color: #F5F5F5;
-                border: 2px solid rgba(120, 195, 225, 140);
-                border-radius: 10px;
-                margin: 8px 0px;
-                padding-top: 15px;
-                font-family: '楷体';
-                background-color: rgba(255, 255, 255, 20);
-            }}
-
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 15px;
-                padding: 0 8px 0 8px;
-                color: #F5F5F5;
-            }}
-
-            QGroupBox#configDetailsGroup::title {{
-                subcontrol-origin: margin;
-                left: 15px;
-                padding: 0 8px 0 8px;
-                color: #FFFFFF;  /* 改为白色 */
-                font: bold 15pt '楷体';
-            }}
-
-            QCheckBox {{
-                font-family: '楷体';
-                font-size: 13pt;
-                color: #F5F5F5;
-                spacing: 12px;
-            }}
-
-            QCheckBox::indicator {{
-                width: 20px;
-                height: 20px;
-                border: 2px solid rgba(120, 195, 225, 140);
-                border-radius: 5px;
-                background-color: rgba(255, 255, 255, 60);
-            }}
-
-            QCheckBox::indicator:checked {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(120, 195, 225, 200), stop:1 rgba(85, 160, 190, 180));
-                border-color: rgba(120, 195, 225, 220);
-            }}
-
-            QCheckBox::indicator:hover {{
-                border-color: rgba(120, 195, 225, 220);
-            }}
-
-            QSplitter::handle {{
-                background-color: rgba(120, 195, 225, 100);
-                width: 3px;
-                border-radius: 1px;
-            }}
-
-            QSplitter::handle:hover {{
-                background-color: rgba(120, 195, 225, 180);
-            }}
-        """
+            QListWidget#profileList::item:hover {{ background: {theme.LIST_HOVER}; }}
+            """,
+            theme.groupbox_qss(title_size=13),
+            theme.checkbox_qss(theme.qss_url("checkmark.png"), font_size=13),
+            f"""
+            QSplitter::handle {{ background-color: {theme.SPLITTER}; width: 3px; border-radius: 1px; }}
+            QSplitter::handle:hover {{ background-color: {theme.ACCENT}; }}
+            """,
+            theme.scrollbar_qss(),
+        ])
 
         self.setStyleSheet(style)
 
@@ -1069,7 +783,7 @@ class LlmAdvancedSettingsDialog(QDialog):
 
             # 标记当前配置
             if profile["id"] == self.current_profile_id:
-                item.setBackground(QColor(135, 206, 235, 100))
+                item.setBackground(QColor(theme.PROFILE_CURRENT_BG))
 
             self.profile_list.addItem(item)
 

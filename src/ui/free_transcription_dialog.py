@@ -8,12 +8,17 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QColor
 
 from ui.custom_widgets import CustomLabel # 确保 CustomLabel 已导入
-from utils.file_utils import resource_path
+from ui import theme
 from config import (
     DEFAULT_FREE_TRANSCRIPTION_LANGUAGE,
     DEFAULT_FREE_TRANSCRIPTION_NUM_SPEAKERS,
     DEFAULT_FREE_TRANSCRIPTION_TAG_AUDIO_EVENTS
 )
+
+
+def _label_font(point_size: int, bold: bool = True) -> QFont:
+    """用应用默认字体族构造标签字体（不硬编码字体名；具体字体由 ui.theme 决定）"""
+    return theme.label_font(point_size, bold)
 
 
 class FreeTranscriptionDialog(QDialog):
@@ -36,12 +41,6 @@ class FreeTranscriptionDialog(QDialog):
         # 创建容器和背景
         container = QWidget(self)
         container.setObjectName("freeTranscriptionDialogContainer")
-        container.setStyleSheet("""
-            QWidget#freeTranscriptionDialogContainer {
-                background-color: rgba(60, 60, 80, 220);
-                border-radius: 10px;
-            }
-        """)
 
         dialog_layout = QVBoxLayout(self)
         dialog_layout.setContentsMargins(0,0,0,0)
@@ -52,14 +51,14 @@ class FreeTranscriptionDialog(QDialog):
         main_layout.setSpacing(18)
 
         # 设置参数标签颜色
-        self.param_label_main_color = QColor(87, 128, 183)
-        self.param_label_stroke_color = QColor(242, 234, 218)
+        self.param_label_main_color = QColor(theme.TITLE_MAIN)
+        self.param_label_stroke_color = QColor(theme.TITLE_STROKE)
 
         # 创建标题栏
         title_bar_layout = QHBoxLayout()
         title_label = CustomLabel("JSON输出参数设置")
         title_label.setCustomColors(main_color=self.param_label_main_color, stroke_color=self.param_label_stroke_color)
-        title_font = QFont('楷体', 20, QFont.Weight.Bold)
+        title_font = theme.title_font()
         title_label.setFont(title_font)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -78,7 +77,7 @@ class FreeTranscriptionDialog(QDialog):
         # 创建音频文件选择组件
         audio_file_layout = QHBoxLayout()
         audio_file_label = CustomLabel("音频文件:")
-        audio_file_label.setFont(QFont('楷体', 16, QFont.Weight.Bold))
+        audio_file_label.setFont(_label_font(16))
         audio_file_label.setCustomColors(self.param_label_main_color, self.param_label_stroke_color)
 
         self.audio_file_path_entry = QLineEdit(self.selected_audio_file_path)
@@ -98,7 +97,7 @@ class FreeTranscriptionDialog(QDialog):
         # 创建语言选择组件
         language_layout = QHBoxLayout()
         language_label = CustomLabel("转录语言:")
-        language_label.setFont(QFont('楷体', 16, QFont.Weight.Bold))
+        language_label.setFont(_label_font(16))
         language_label.setCustomColors(self.param_label_main_color, self.param_label_stroke_color)
         self.language_combo = QComboBox()
         self.language_combo.addItems(["自动检测", "日语", "中文", "英文", "韩语"])
@@ -115,7 +114,7 @@ class FreeTranscriptionDialog(QDialog):
         # 创建说话人数选择组件
         num_speakers_layout = QHBoxLayout()
         num_speakers_label = CustomLabel("说话人数:")
-        num_speakers_label.setFont(QFont('楷体', 16, QFont.Weight.Bold))
+        num_speakers_label.setFont(_label_font(16))
         num_speakers_label.setCustomColors(self.param_label_main_color, self.param_label_stroke_color)
         self.num_speakers_combo = QComboBox()
         self.num_speakers_combo.addItem("自动检测", 0)
@@ -154,6 +153,7 @@ class FreeTranscriptionDialog(QDialog):
         button_layout.setSpacing(15)
         button_layout.addStretch()
         self.confirm_button = QPushButton("确定")
+        self.confirm_button.setObjectName("dialogPrimaryButtonFT")
         self.cancel_button = QPushButton("取消")
         self.reset_button = QPushButton("重置")
         self.confirm_button.clicked.connect(self._accept_settings)
@@ -296,112 +296,30 @@ class FreeTranscriptionDialog(QDialog):
         self.tag_events_checkbox.setChecked(DEFAULT_FREE_TRANSCRIPTION_TAG_AUDIO_EVENTS)
 
     def _apply_styles(self):
-        # 借鉴 SettingsDialog 的样式
-        # 并为新对话框的特定控件添加或调整样式
-        style = f"""
-            CustomLabel {{ /* 由 setCustomColors 控制颜色 */
-                background-color: transparent;
+        style = "\n".join([
+            theme.dialog_container_qss("freeTranscriptionDialogContainer"),
+            "CustomLabel { background-color: transparent; }",
+            theme.line_edit_qss(font_size=12, sel="QLineEdit#pathEditDialogFT"),
+            theme.combo_qss(arrow_url=theme.qss_url("dropdown_arrow_light.png"),
+                            font_size=12, sel="QComboBox#dialogComboBoxFT"),
+            theme.checkbox_qss(theme.qss_url("checkmark.png"),
+                               sel="QCheckBox#dialogCheckboxFT", font_size=14),
+            theme.button_qss("neutral", font_size=14, padding="8px 20px"),
+            theme.button_qss("primary", sel="QPushButton#dialogPrimaryButtonFT",
+                             font_size=14, padding="8px 20px"),
+            theme.button_qss("neutral", sel="QPushButton#dialogBrowseButton",
+                             font_size=12, padding="6px 15px"),
+            f"""
+            QPushButton#dialogCloseButton {{
+                background-color: {theme.CLOSE_BG}; color: {theme.CLOSE_FG};
+                border: none; border-radius: 15px;
+                font-weight: bold; font-size: 12pt;
+                padding: 0px; min-width: 30px; max-width: 30px; min-height: 30px; max-height: 30px;
             }}
-            QLineEdit#pathEditDialogFT {{ /* 为音频路径输入框定制 */
-                background-color: rgba(255, 255, 255, 50); 
-                color: #EAEAEA; 
-                border: 1px solid rgba(135, 206, 235, 120); 
-                border-radius: 5px;
-                padding: 5px; 
-                font-family: 'Microsoft YaHei'; font-size: 12pt; /* 稍大一点 */
-            }}
-            QComboBox#dialogComboBoxFT {{ /* 为下拉框定制 */
-                background-color: rgba(255, 255, 255, 50); 
-                color: #EAEAEA;
-                border: 1px solid rgba(135, 206, 235, 120); 
-                border-radius: 5px;
-                padding: 5px 8px; 
-                font-family: 'Microsoft YaHei'; font-size: 12pt; /* 稍大一点 */
-                min-height: 1.9em; /* 调整最小高度以匹配QLineEdit */
-            }}
-            QComboBox#dialogComboBoxFT::drop-down {{
-                subcontrol-origin: padding; subcontrol-position: center right;
-                width: 22px; /* 稍宽一点 */
-                border-left: 1px solid rgba(135, 206, 235, 120);
-            }}
-            /* 如果需要自定义箭头图标，可以像 SettingsDialog 中那样添加 */
-            
-            QCheckBox#dialogCheckboxFT {{ /* 为复选框定制 */
-                color: #E0E8F0; /* 浅色字体 */
-                font-family: '楷体'; font-size: 14pt; font-weight: bold; /* 更清晰的字体 */
-                spacing: 8px;
-                background-color: transparent;
-                padding: 5px 0px; /* 上下一点padding */
-            }}
-            QCheckBox#dialogCheckboxFT::indicator {{
-                width: 20px; height: 20px; /* 稍大一点的指示器 */
-                border: 1px solid rgba(135, 206, 235, 180);
-                border-radius: 4px;
-                background-color: rgba(255,255,255,40);
-            }}
-            QCheckBox#dialogCheckboxFT::indicator:checked {{
-                background-color: rgba(100, 180, 230, 200); /* 更亮的选中色 */
-                image: url('{resource_path('checkmark.png').replace(os.sep, '/') if resource_path('checkmark.png') and os.path.exists(resource_path('checkmark.png')) else "" }');
-                background-repeat: no-repeat;
-                background-position: center;
-            }}
-
-            QPushButton {{ /* 与 SettingsDialog 按钮样式一致 */
-                background-color: rgba(100, 149, 237, 170); color: white;
-                border: 1px solid rgba(135, 206, 235, 100);
-                border-radius: 6px;
-                font-family: '楷体'; font-weight: bold; font-size: 14pt;
-                padding: 8px 20px;
-                min-width: 80px;
-            }}
-            QPushButton:hover {{ background-color: rgba(120, 169, 247, 200); }}
-            QPushButton:pressed {{ background-color: rgba(80, 129, 217, 200); }}
-
-            QPushButton#dialogBrowseButton {{ /* 浏览按钮特定样式 */
-                font-size: 12pt; /* 稍小一点 */
-                padding: 6px 15px;
-                min-width: 70px;
-                 background-color: rgba(120, 170, 130, 170); /* 不同颜色以区分 */
-            }}
-             QPushButton#dialogBrowseButton:hover {{ background-color: rgba(140, 190, 150, 200); }}
-             QPushButton#dialogBrowseButton:pressed {{ background-color: rgba(100, 150, 110, 200); }}
-
-
-            QPushButton#dialogCloseButton {{ /* 与 SettingsDialog 关闭按钮一致 */
-                background-color: rgba(255, 99, 71, 160); color: white;
-                border: none; border-radius: 15px; 
-                font-weight:bold; font-size: 12pt; 
-                padding: 0px; min-width: 30px; max-width:30px; min-height:30px; max-height:30px;
-            }}
-            QPushButton#dialogCloseButton:hover {{ background-color: rgba(255, 99, 71, 200); }}
-        """
+            QPushButton#dialogCloseButton:hover {{ background-color: {theme.CLOSE_HOVER_BG}; color: {theme.CLOSE_HOVER_FG}; }}
+            """,
+        ])
         self.setStyleSheet(style)
-        
-        # 下拉箭头图标 (如果 SettingsDialog 有，这里也保持一致)
-        # up_arrow_path_str = resource_path('up_arrow.png') # 这些是spinbox的，combobox用另一个
-        # down_arrow_path_str = resource_path('down_arrow.png')
-        dropdown_arrow_path_str = resource_path('dropdown_arrow.png') # 假设有这个图标
-        qss_dropdown_arrow = ""
-        if dropdown_arrow_path_str and os.path.exists(dropdown_arrow_path_str):
-            qss_dropdown_arrow = f"url('{dropdown_arrow_path_str.replace(os.sep, '/')}')"
-
-        combo_style_sheet = self.language_combo.styleSheet() # 获取基础样式
-        combo_style_sheet += f"""
-            QComboBox#dialogComboBoxFT::down-arrow {{
-                image: {qss_dropdown_arrow if qss_dropdown_arrow else "none"};
-                width: 10px; height: 10px; /* 调整箭头大小 */
-                padding-right: 5px; /* 箭头右边距 */
-            }}
-            QComboBox#dialogComboBoxFT QAbstractItemView {{ /* 下拉菜单样式，参考主窗口 */
-                background-color: rgba(70, 70, 90, 240); /* 深色背景 */
-                color: #EAEAEA; 
-                border: 1px solid rgba(135, 206, 235, 150); 
-                border-radius:5px; padding:4px; outline:0px;
-                selection-background-color: rgba(100, 149, 237, 190); /* 选中项背景 */
-            }}
-        """
-        self.language_combo.setStyleSheet(combo_style_sheet)
-        self.num_speakers_combo.setStyleSheet(combo_style_sheet)
 
 
     def mousePressEvent(self, event):

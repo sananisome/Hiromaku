@@ -7,10 +7,11 @@ from PyQt6.QtWidgets import (
     QFormLayout, QScrollArea, QFrame, QStackedWidget, QGridLayout, QListWidget,
     QListWidgetItem, QApplication, QToolButton
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QSize, QThread
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QSize, QThread, QEvent
 from PyQt6.QtGui import QFont, QColor, QIcon, QPixmap
 
 from ui.custom_widgets import CustomLabel, TransparentWidget, StrokeCheckBoxWidget
+from ui import theme
 from utils.file_utils import resource_path
 from config import (
     DEFAULT_CLOUD_TRANSCRIPTION_PROVIDER,
@@ -73,6 +74,15 @@ try:
     JSON_AVAILABLE = True
 except ImportError:
     JSON_AVAILABLE = False
+
+
+# 可拖进来的音视频格式（与主窗口拖拽保持一致）
+_MEDIA_EXTS = ('.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus', '.aac', '.webm', '.mp4', '.mov')
+
+
+def _label_font(point_size: int, bold: bool = True) -> QFont:
+    """用应用默认字体族构造标签字体（不硬编码字体名；具体字体由 ui.theme 决定）"""
+    return theme.label_font(point_size, bold)
 
 
 class OCRWorker(QThread):
@@ -488,13 +498,7 @@ class ContextEditDialog(QDialog):
         # 主容器
         container = QWidget(self)
         container.setObjectName("contextEditDialogContainer")
-        container.setStyleSheet("""
-            QWidget#contextEditDialogContainer {
-                background-color: rgba(60, 60, 80, 240);
-                border-radius: 12px;
-                border: 1px solid rgba(255, 255, 255, 0.15);
-            }
-        """)
+        container.setStyleSheet(theme.dialog_container_qss("contextEditDialogContainer"))
 
         dialog_layout = QVBoxLayout(self)
         dialog_layout.setContentsMargins(0, 0, 0, 0)
@@ -513,23 +517,22 @@ class ContextEditDialog(QDialog):
         self.text_edit.setPlainText(current_text)
         self.text_edit.setPlaceholderText(self.placeholder_text)  # 添加占位符提示
         # 修改为更深的背景色，这样白色光标会更明显
-        self.text_edit.setStyleSheet("""
-            QTextEdit {
-                background-color: rgba(50, 50, 70, 220);
-                border: 1px solid rgba(135, 206, 235, 80);
+        self.text_edit.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: {theme.LOG_BG};
+                border: 1px solid {theme.INPUT_BORDER};
                 border-radius: 5px;
-                color: #FFFFFF;
-                font-family: 'Microsoft YaHei';
+                color: {theme.TEXT_PRIMARY};
                 font-size: 12pt;
                 font-weight: bold;
                 padding: 10px;
                 outline: none;
-                selection-background-color: rgba(120, 195, 225, 150);
-            }
-            QTextEdit:focus {
-                border: 2px solid rgba(135, 206, 235, 220);
-                background-color: rgba(70, 70, 90, 240);
-            }
+                selection-background-color: {theme.SELECTION_BG};
+            }}
+            QTextEdit:focus {{
+                border: 1px solid {theme.ACCENT};
+                background-color: {theme.TEXT_FOCUS_BG_STRONG};
+            }}
         """)
         main_layout.addWidget(self.text_edit)
 
@@ -539,21 +542,7 @@ class ContextEditDialog(QDialog):
 
         confirm_button = QPushButton("确定")
         confirm_button.setFixedSize(120, 40)
-        confirm_button.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(40, 167, 69, 180), stop:1 rgba(30, 130, 55, 200));
-                color: white;
-                border: 1px solid rgba(40, 167, 69, 150);
-                border-radius: 8px;
-                font-family: '楷体';
-                font-size: 15pt;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background: rgba(40, 167, 69, 220);
-            }
-        """)
+        confirm_button.setStyleSheet(theme.button_qss("primary", font_size=15, padding="6px 20px", radius=8))
         confirm_button.clicked.connect(self.accept)
         button_layout.addWidget(confirm_button)
 
@@ -567,31 +556,30 @@ class ContextEditDialog(QDialog):
         title_bar_layout = QHBoxLayout()
 
         title_label = QLabel(title)
-        title_label.setStyleSheet("""
-            QLabel {
-                color: #F2EADA;
-                font: bold 18px '楷体';
+        title_label.setStyleSheet(f"""
+            QLabel {{
+                color: {theme.TEXT_PRIMARY};
+                font-size: 13.5pt;
+                font-weight: bold;
                 padding: 5px;
-            }
+            }}
         """)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         close_button = QPushButton("×")
         close_button.setFixedSize(32, 32)
-        close_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(255, 99, 71, 160);
-                color: white;
+        close_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {theme.CLOSE_BG};
+                color: {theme.CLOSE_FG};
                 border: none;
                 border-radius: 16px;
                 font-weight: bold;
                 font-family: Arial;
                 font-size: 16pt;
                 padding: 0px;
-            }
-            QPushButton:hover {
-                background-color: rgba(255, 99, 71, 220);
-            }
+            }}
+            QPushButton:hover {{ background-color: {theme.CLOSE_HOVER_BG}; color: {theme.CLOSE_HOVER_FG}; }}
         """)
         close_button.clicked.connect(self.reject)
 
@@ -706,13 +694,7 @@ class CloudTranscriptionDialog(QDialog):
         # 主容器
         container = QWidget(self)
         container.setObjectName("cloudTranscriptionDialogContainer")
-        container.setStyleSheet("""
-            QWidget#cloudTranscriptionDialogContainer {
-                background-color: rgba(60, 60, 80, 240);
-                border-radius: 12px;
-                border: 1px solid rgba(255, 255, 255, 0.15);
-            }
-        """)
+        container.setStyleSheet(theme.dialog_container_qss("cloudTranscriptionDialogContainer"))
 
         dialog_layout = QVBoxLayout(self)
         dialog_layout.setContentsMargins(0, 0, 0, 0)
@@ -724,8 +706,8 @@ class CloudTranscriptionDialog(QDialog):
         main_layout.setSpacing(15)
 
         # 颜色定义
-        self.param_label_main_color = QColor(87, 128, 183)
-        self.param_label_stroke_color = QColor(242, 234, 218)
+        self.param_label_main_color = QColor(theme.TITLE_MAIN)
+        self.param_label_stroke_color = QColor(theme.TITLE_STROKE)
 
         # 构建UI
         self._create_title_bar(main_layout)
@@ -787,6 +769,9 @@ class CloudTranscriptionDialog(QDialog):
         # 初始化时检查批量模式状态
         QTimer.singleShot(100, self._check_and_update_batch_mode_ui)
 
+        # 支持把音视频文件 / 文件夹直接拖进对话框
+        self._setup_file_drop()
+
     def showEvent(self, event):
         super().showEvent(event)
         # 确保弹窗尺寸正确（修复拖拽文件打开时高度不够的问题）
@@ -846,7 +831,7 @@ class CloudTranscriptionDialog(QDialog):
         
         title_label = CustomLabel("云端转录设置")
         title_label.setCustomColors(main_color=self.param_label_main_color, stroke_color=self.param_label_stroke_color)
-        title_font = QFont('楷体', 22, QFont.Weight.Bold)
+        title_font = _label_font(22)
         title_label.setFont(title_font)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -864,20 +849,18 @@ class CloudTranscriptionDialog(QDialog):
         else:
             close_button.setText("×")
             
-        close_button.setStyleSheet("""
-            QPushButton#dialogCloseButton {
-                background-color: rgba(255, 99, 71, 160); 
-                color: white;
-                border: none; 
+        close_button.setStyleSheet(f"""
+            QPushButton#dialogCloseButton {{
+                background-color: {theme.CLOSE_BG};
+                color: {theme.CLOSE_FG};
+                border: none;
                 border-radius: 16px;
-                font-weight: bold; 
+                font-weight: bold;
                 font-family: Arial;
                 font-size: 16pt;
                 padding: 0px;
-            }
-            QPushButton#dialogCloseButton:hover {
-                background-color: rgba(255, 99, 71, 220);
-            }
+            }}
+            QPushButton#dialogCloseButton:hover {{ background-color: {theme.CLOSE_HOVER_BG}; color: {theme.CLOSE_HOVER_FG}; }}
         """)
 
         title_bar_layout.addStretch()
@@ -889,6 +872,7 @@ class CloudTranscriptionDialog(QDialog):
     def _create_file_selection_area(self, layout):
         file_group = QGroupBox("音频文件")
         file_group.setStyleSheet(self._get_group_style())
+        self.file_group = file_group  # 拖拽时高亮用
         
         file_layout = QVBoxLayout(file_group)
         file_layout.setSpacing(8)
@@ -898,7 +882,7 @@ class CloudTranscriptionDialog(QDialog):
         input_layout.setSpacing(10)
 
         self.file_path_entry = QLineEdit()
-        self.file_path_entry.setPlaceholderText("请点击浏览按钮选择音频文件...") 
+        self.file_path_entry.setPlaceholderText("点击「浏览」，或把音频 / 视频直接拖进这个窗口...")
         self.file_path_entry.setReadOnly(True)
         self.file_path_entry.setStyleSheet(self._get_input_style())
         self.file_path_entry.setMinimumHeight(38)
@@ -913,8 +897,8 @@ class CloudTranscriptionDialog(QDialog):
         input_layout.addWidget(browse_btn)
         file_layout.addLayout(input_layout)
 
-        hint_label = QLabel("📁 支持批量选择多个音频文件进行处理")
-        hint_label.setStyleSheet("color: rgba(242, 234, 218, 0.9); font-size: 13px; font-weight: bold; padding-left: 2px;")
+        hint_label = QLabel("📁 支持批量：可多选，也可一次拖入多个文件或整个文件夹")
+        hint_label.setStyleSheet(f"color: {theme.HINT_TEXT}; font-size: 13px; font-weight: bold; padding-left: 2px;")
         file_layout.addWidget(hint_label)
 
         layout.addWidget(file_group)
@@ -928,7 +912,7 @@ class CloudTranscriptionDialog(QDialog):
         group_layout.setSpacing(15)
 
         label = CustomLabel("转录服务商:")
-        label.setFont(QFont('楷体', 16, QFont.Weight.Bold))
+        label.setFont(_label_font(16))
         label.setCustomColors(self.param_label_main_color, self.param_label_stroke_color)
 
         self.provider_combo = QComboBox()
@@ -970,7 +954,7 @@ class CloudTranscriptionDialog(QDialog):
         layout = QGridLayout(page)
         layout.setContentsMargins(10, 0, 10, 0)
         layout.setSpacing(15)
-        label_font = QFont('楷体', 15, QFont.Weight.Bold)
+        label_font = _label_font(15)
 
         # Row 0: 语言
         lbl_lang = CustomLabel("目标语言:")
@@ -1036,7 +1020,7 @@ class CloudTranscriptionDialog(QDialog):
         layout = QGridLayout(page)
         layout.setContentsMargins(10, 0, 10, 0)
         layout.setSpacing(15)
-        label_font = QFont('楷体', 15, QFont.Weight.Bold)
+        label_font = _label_font(15)
 
         # Row 0: API Key
         lbl_key = CustomLabel("API Key:")
@@ -1140,7 +1124,7 @@ class CloudTranscriptionDialog(QDialog):
         main_layout = QGridLayout(page)
         main_layout.setContentsMargins(10, 0, 10, 0)
         main_layout.setSpacing(20)
-        label_font = QFont('楷体', 15, QFont.Weight.Bold)
+        label_font = _label_font(15)
 
         # Row 0: API Key (紧凑布局，无左侧空白)
         lbl_key = CustomLabel("API Key:")
@@ -1223,7 +1207,7 @@ class CloudTranscriptionDialog(QDialog):
         separator_line = QFrame()
         separator_line.setFrameShape(QFrame.Shape.HLine)
         separator_line.setFrameShadow(QFrame.Shadow.Sunken)
-        separator_line.setStyleSheet("color: #666666;")
+        separator_line.setStyleSheet(f"color: {theme.SEPARATOR};")
         left_layout.addWidget(separator_line, 0, Qt.AlignmentFlag.AlignLeft)
 
         # 右栏 - Context 优化
@@ -1342,148 +1326,79 @@ class CloudTranscriptionDialog(QDialog):
 
     # --- Styles ---
     def _get_group_style(self):
-        return "QGroupBox { color: #F2EADA; font: bold 16px '楷体'; border: 1px solid rgba(87, 128, 183, 0.4); border-radius: 8px; margin-top: 12px; padding-top: 15px; background-color: rgba(255, 255, 255, 8); } QGroupBox::title { subcontrol-origin: margin; left: 15px; padding: 0 5px; color: #B34A4A; }"
-    
-    def _get_sub_group_style(self):
-        return "QGroupBox { color: #F2EADA; font: bold 14px '楷体'; border: 2px solid rgba(87, 128, 183, 0.6); border-radius: 6px; margin-top: 10px; background-color: transparent; } QGroupBox::title { subcontrol-origin: margin; left: 10px; color: #FF6B6B; }"
-    
-    def _get_input_style(self):
-        # 统一所有输入框样式：背景色、字体颜色、边框颜色、字体、内边距
-        return """
-            QLineEdit, QSpinBox, QTextEdit { 
-                background-color: rgba(255, 255, 255, 60); 
-                color: #FFFFFF; 
-                border: 1px solid rgba(120, 195, 225, 140); 
-                border-radius: 6px; 
-                padding: 5px 10px; 
-                font-size: 14px; 
-                font-family: 'Microsoft YaHei'; 
-            } 
-            QLineEdit:focus, QSpinBox:focus, QTextEdit:focus {
-                border: 2px solid rgba(120, 195, 225, 220);
-                background-color: rgba(255, 255, 255, 80);
-            }
-            /* 确保 QTextEdit 内部没有额外边框 */
-            QTextEdit { outline: none; }
-        """
-    
-    def _get_combo_style(self):
-        dropdown_arrow_path_str = resource_path('dropdown_arrow.png')
-        qss_dropdown_arrow = ""
-        if dropdown_arrow_path_str and os.path.exists(dropdown_arrow_path_str):
-             qss_dropdown_arrow = f"url('{dropdown_arrow_path_str.replace(os.sep, '/')}')"
+        return theme.groupbox_qss(title_size=12)
 
-        # 与 _get_input_style 保持高度一致
+    def _get_sub_group_style(self):
         return f"""
-            QComboBox {{
-                background-color: rgba(255, 255, 255, 60);
-                color: #FFFFFF;
-                border: 1px solid rgba(120, 195, 225, 140);
-                border-radius: 6px;
-                padding: 5px 8px;
-                font-family: 'Microsoft YaHei';
-                font-size: 14px;
-                min-height: 1.9em;
+            QGroupBox {{
+                color: {theme.TEXT_PRIMARY}; font-weight: bold; font-size: 10.5pt;
+                border: 1px solid {theme.PANEL_BORDER}; border-radius: 6px;
+                margin-top: 10px; background-color: transparent;
             }}
-            QComboBox:hover {{
-                background-color: rgba(255, 255, 255, 80);
-                border-color: rgba(120, 195, 225, 180);
-            }}
-            QComboBox:focus {{
-                background-color: rgba(255, 255, 255, 80);
-                border: 2px solid rgba(120, 195, 225, 220);
-            }}
-            QComboBox::drop-down {{
-                subcontrol-origin: padding;
-                subcontrol-position: center right;
-                width: 30px;
-                border-left: 1px solid rgba(120, 195, 225, 140);
-                border-top-right-radius: 6px;
-                border-bottom-right-radius: 6px;
-                background-color: rgba(120, 195, 225, 120);
-            }}
-            QComboBox::down-arrow {{
-                image: {qss_dropdown_arrow if qss_dropdown_arrow else "none"};
-                width: 12px;
-                height: 12px;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: rgba(70, 70, 90, 240);
-                color: #EAEAEA;
-                border: 1px solid rgba(135, 206, 235, 150);
-                border-radius: 6px;
-                padding: 4px;
-                outline: 0px;
-                selection-background-color: rgba(120, 195, 225, 200);
-                font-family: 'Microsoft YaHei';
-                font-size: 14px;
-            }}
-            QComboBox QAbstractItemView::item {{
-                padding: 8px 10px;
-                min-height: 2.2em;
-                border-radius: 3px;
-                background-color: transparent;
-            }}
-            QComboBox QAbstractItemView::item:selected {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(120, 195, 225, 200), stop:1 rgba(85, 160, 190, 180));
-                color: white;
-            }}
-            QComboBox QAbstractItemView::item:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(120, 195, 225, 120), stop:1 rgba(85, 160, 190, 100));
-            }}
-            QScrollBar:vertical {{
-                border: none;
-                background: rgba(0, 0, 0, 30);
-                width: 10px;
-                margin: 0px 0px 0px 0px;
-                border-radius: 5px;
-            }}
-            QScrollBar::handle:vertical {{
-                background: rgba(255, 255, 255, 80);
-                min-height: 20px;
-                border-radius: 5px;
-            }}
-            QScrollBar::handle:vertical:hover {{
-                background: rgba(255, 255, 255, 120);
-            }}
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-                height: 0px;
-                subcontrol-origin: margin;
-            }}
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
-                background: none;
+            QGroupBox::title {{
+                subcontrol-origin: margin; left: 10px; color: {theme.ACCENT};
             }}
         """
+
+    def _get_input_style(self):
+        # 统一所有输入框样式（来自 ui.theme）
+        return "\n".join([
+            theme.line_edit_qss(font_size=14),
+            theme.spinbox_qss(font_size=14, up_url=theme.qss_url("up_arrow_light.png"),
+                              down_url=theme.qss_url("down_arrow_light.png")),
+            theme.spinbox_qss(font_size=14, sel="QDoubleSpinBox",
+                              up_url=theme.qss_url("up_arrow_light.png"),
+                              down_url=theme.qss_url("down_arrow_light.png")),
+            f"""
+            QTextEdit {{
+                background-color: {theme.LOG_BG};
+                color: {theme.TEXT_PRIMARY};
+                border: 1px solid {theme.INPUT_BORDER};
+                border-radius: 6px;
+                padding: 5px 10px;
+                font-size: 14px;
+                outline: none;
+                selection-background-color: {theme.SELECTION_BG};
+            }}
+            QTextEdit:focus {{
+                border: 1px solid {theme.ACCENT};
+                background-color: {theme.TEXT_FOCUS_BG};
+            }}
+            """,
+        ])
+
+    def _get_combo_style(self):
+        # 与 _get_input_style 保持高度一致（来自 ui.theme）
+        return "\n".join([
+            theme.combo_qss(arrow_url=theme.qss_url("dropdown_arrow_light.png"), font_size=14),
+            theme.scrollbar_qss(),
+        ])
 
     def _get_btn_style(self):
-        return """
-            QPushButton {
-                background-color: rgba(100, 149, 237, 170);
-                color: white;
-                border: 1px solid rgba(135, 206, 235, 100);
-                border-radius: 6px;
-                font-family: '楷体';
-                font-weight: bold;
-                font-size: 13pt;
-                padding: 6px 12px;
-            }
-            QPushButton:hover { background-color: rgba(120, 169, 247, 200); }
-            QPushButton:pressed { background-color: rgba(80, 129, 217, 200); }
-        """
-    
+        return theme.button_qss("neutral", font_size=13, padding="6px 12px", radius=6)
+
     def _get_cancel_btn_style(self):
-        return "QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(220, 53, 69, 180), stop:1 rgba(180, 40, 50, 200)); color: white; border: 1px solid rgba(220, 53, 69, 150); border-radius: 8px; font-family: '楷体'; font-size: 15pt; font-weight: bold; } QPushButton:hover { background: rgba(220, 53, 69, 220); }"
-    
+        return theme.button_qss("neutral", font_size=15, padding="8px 25px", radius=8)
+
     def _get_ok_btn_style(self):
-        return "QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(40, 167, 69, 180), stop:1 rgba(30, 130, 55, 200)); color: white; border: 1px solid rgba(40, 167, 69, 150); border-radius: 8px; font-family: '楷体'; font-size: 15pt; font-weight: bold; } QPushButton:hover { background: rgba(40, 167, 69, 220); }"
-    
+        return theme.button_qss("primary", font_size=15, padding="8px 25px", radius=8)
+
     def _get_icon_btn_style(self):
-        return "QPushButton { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 5px; color: #DDD; font-size: 16px; } QPushButton:hover { background: rgba(255, 255, 255, 0.2); }"
-    
+        return theme.button_qss("neutral", font_size=16, padding="2px 6px", radius=5, bold=False)
+
     def _get_list_style(self):
-        return "QListWidget { background-color: rgba(255, 255, 255, 0.15); border: 1px solid rgba(87, 128, 183, 0.4); border-radius: 5px; color: #F2EADA; font-size: 13px; } QListWidget::item { padding: 4px; } QListWidget::item:hover { background: rgba(255, 255, 255, 0.2); }"
+        return f"""
+            QListWidget {{
+                background-color: {theme.INPUT_BG};
+                border: 1px solid {theme.INPUT_BORDER};
+                border-radius: 5px;
+                color: {theme.TEXT_PRIMARY};
+                font-size: 13px;
+            }}
+            QListWidget::item {{ padding: 4px; }}
+            QListWidget::item:hover {{ background: {theme.LIST_HOVER}; }}
+            QListWidget::item:selected {{ background: {theme.POPUP_SELECTION}; color: {theme.ON_SELECTION}; }}
+        """
 
     def _create_edit_button(self, tooltip_text):
         """创建编辑按钮"""
@@ -1682,35 +1597,21 @@ class CloudTranscriptionDialog(QDialog):
             # 1. 按钮变红，功能变为"取消"
             self.import_script_button.setEnabled(True)  # 确保按钮可点击
             self.import_script_button.setText("✖ 取消上传")
-            self.import_script_button.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(255, 74, 74, 180);
-                    color: white;
-                    border: 1px solid rgba(255, 74, 74, 255);
-                    border-radius: 8px;
-                    font-family: '楷体';
-                    font-size: 15pt;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: rgba(255, 74, 74, 220);
-                }
-            """)
+            self.import_script_button.setStyleSheet(
+                theme.button_qss("danger", font_size=15, padding="6px 12px", radius=8))
             self.import_script_button.setToolTip("点击移除当前台本，恢复手动编辑")
 
             # 2. 文本框设为只读但仍允许编辑按钮工作
             self.soniox_context_edit.setReadOnly(True)
-            self.soniox_context_edit.setStyleSheet("""
-                QTextEdit {
-                    background-color: rgba(50, 50, 50, 180);
-                    border: 1px solid rgba(135, 206, 235, 60);
+            self.soniox_context_edit.setStyleSheet(f"""
+                QTextEdit {{
+                    background-color: {theme.TEXT_LOCKED_BG};
+                    border: 1px solid {theme.INPUT_DISABLED_BORDER};
                     border-radius: 5px;
-                    color: #CCCCCC;
-                    font-family: 'Microsoft YaHei';
+                    color: {theme.TEXT_SECONDARY};
                     font-size: 12pt;
-                    font-weight: bold;
                     padding: 10px;
-                }
+                }}
             """)
             # 注意：编辑按钮保持启用状态，允许用户查看和修改清洗后的文本
 
@@ -1815,17 +1716,142 @@ class CloudTranscriptionDialog(QDialog):
 
     def _select_audio_file(self):
         curr_dir = os.path.dirname(self.selected_audio_file_path) if self.selected_audio_file_path else os.path.expanduser("~")
-        files, _ = QFileDialog.getOpenFileNames(self, "选择音频", curr_dir, "音频文件 (*.mp3 *.wav *.flac *.m4a *.ogg *.aac);;所有文件 (*)")
+        patterns = " ".join("*" + ext for ext in _MEDIA_EXTS)
+        files, _ = QFileDialog.getOpenFileNames(self, "选择音频", curr_dir, f"音视频文件 ({patterns});;所有文件 (*)")
         if files:
-            if len(files) == 1:
-                self.selected_audio_file_path = files[0]
-                self.selected_audio_files = []
+            self._apply_selected_audio_files(files)
+
+    def _apply_selected_audio_files(self, files):
+        """浏览选择和拖拽共用：1 个文件走单文件模式，多个走批量模式"""
+        if len(files) == 1:
+            self.selected_audio_file_path = files[0]
+            self.selected_audio_files = []
+        else:
+            self.selected_audio_file_path = ""
+            self.selected_audio_files = list(files)
+        self._update_file_display()
+        # 检查并更新批量模式下的 UI 状态
+        self._check_and_update_batch_mode_ui()
+
+    # --- 拖拽选择音频 ---
+    def _setup_file_drop(self):
+        """整个对话框都能接收拖入的音视频。
+
+        输入框、文本框这类本身就接受拖放的控件会抢走拖拽事件，所以给它们装事件过滤器：
+        拖进来的是音视频才由这里接管，拖普通文字进去仍保持原来的行为。"""
+        self.setAcceptDrops(True)
+        self._drop_pending = None      # (files, skipped)，在 DragEnter 时算好，避免 DragMove 反复扫描文件夹
+        self._drop_highlight = False
+        self._drop_saved_text = None
+        for w in self.findChildren(QWidget):
+            if w is not self and w.acceptDrops():
+                w.installEventFilter(self)
+
+    def _media_files_from_mime(self, mime):
+        """从拖拽数据里取出可转录的本地文件；文件夹取其第一层里的音视频。返回 (files, 跳过数)"""
+        if mime is None or not mime.hasUrls():
+            return [], 0
+        files, skipped = [], 0
+        for url in mime.urls():
+            if not url.isLocalFile():
+                skipped += 1
+                continue
+            path = url.toLocalFile()
+            if os.path.isdir(path):
+                try:
+                    names = sorted(os.listdir(path))
+                except OSError:
+                    skipped += 1
+                    continue
+                files.extend(os.path.join(path, n) for n in names
+                             if n.lower().endswith(_MEDIA_EXTS) and os.path.isfile(os.path.join(path, n)))
+            elif path.lower().endswith(_MEDIA_EXTS) and os.path.isfile(path):
+                files.append(path)
             else:
-                self.selected_audio_file_path = ""
-                self.selected_audio_files = files
-            self._update_file_display()
-            # 检查并更新批量模式下的 UI 状态
-            self._check_and_update_batch_mode_ui()
+                skipped += 1
+        seen = set()
+        files = [f for f in files if not (f in seen or seen.add(f))]
+        return files, skipped
+
+    def _set_drop_highlight(self, on, count=0):
+        group = getattr(self, 'file_group', None)
+        entry = getattr(self, 'file_path_entry', None)
+        if on:
+            if group is not None:
+                group.setStyleSheet(self._get_group_style() +
+                                    f"\nQGroupBox {{ border: 2px dashed {theme.ACCENT}; }}")
+            if entry is not None:
+                if not self._drop_highlight:
+                    self._drop_saved_text = entry.text()
+                entry.setText(f"松手即可添加 {count} 个文件" if count > 1 else "松手即可添加这个文件")
+        elif self._drop_highlight:
+            if group is not None:
+                group.setStyleSheet(self._get_group_style())
+            if entry is not None and self._drop_saved_text is not None:
+                entry.setText(self._drop_saved_text)
+            self._drop_saved_text = None
+        self._drop_highlight = on
+
+    def _handle_drag_enter(self, event) -> bool:
+        files, skipped = self._media_files_from_mime(event.mimeData())
+        if not files:
+            self._drop_pending = None
+            return False
+        self._drop_pending = (files, skipped)
+        event.acceptProposedAction()
+        self._set_drop_highlight(True, len(files))
+        return True
+
+    def _handle_drop(self, event) -> bool:
+        pending = self._drop_pending or self._media_files_from_mime(event.mimeData())
+        self._drop_pending = None
+        self._set_drop_highlight(False)
+        files, skipped = pending
+        if not files:
+            return False
+        event.acceptProposedAction()
+        self._apply_selected_audio_files(files)
+        if skipped:
+            # 放到事件循环里再弹，避免在拖放回调里开模态框卡住来源程序（比如资源管理器）
+            QTimer.singleShot(0, lambda n=skipped: QMessageBox.information(
+                self, "已忽略部分文件", f"有 {n} 个项目不是支持的音视频格式，已跳过。\n"
+                                       f"支持：{' '.join(_MEDIA_EXTS)}"))
+        return True
+
+    def dragEnterEvent(self, event):
+        if not self._handle_drag_enter(event):
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if self._drop_pending:
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragLeaveEvent(self, event):
+        self._set_drop_highlight(False)
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event):
+        if not self._handle_drop(event):
+            event.ignore()
+
+    def eventFilter(self, obj, event):
+        et = event.type()
+        if et == QEvent.Type.DragEnter:
+            if self._handle_drag_enter(event):
+                return True
+        elif et == QEvent.Type.DragMove:
+            if self._drop_pending:
+                event.acceptProposedAction()
+                return True
+        elif et == QEvent.Type.DragLeave:
+            if self._drop_highlight:
+                self._set_drop_highlight(False)
+        elif et == QEvent.Type.Drop:
+            if self._drop_pending and self._handle_drop(event):
+                return True
+        return super().eventFilter(obj, event)
 
     def _check_and_update_batch_mode_ui(self):
         """
@@ -1848,22 +1874,8 @@ class CloudTranscriptionDialog(QDialog):
                 self.import_script_button.setEnabled(False)
                 self.import_script_button.setText("批量模式下禁用")
                 self.import_script_button.setToolTip("批量模式下已禁用特定台本导入，请手动输入通用的背景设定")
-                # 设置禁用状态的灰色样式
-                self.import_script_button.setStyleSheet("""
-                    QPushButton {
-                        background-color: rgba(128, 128, 128, 180);
-                        color: rgba(255, 255, 255, 0.7);
-                        border: 1px solid rgba(128, 128, 128, 150);
-                        border-radius: 6px;
-                        font-family: '楷体';
-                        font-weight: bold;
-                        font-size: 13pt;
-                        padding: 6px 12px;
-                    }
-                    QPushButton:hover {
-                        background-color: rgba(128, 128, 128, 200);
-                    }
-                """)
+                # 禁用态由通用按钮样式的 :disabled 规则处理
+                self.import_script_button.setStyleSheet(self._get_btn_style())
 
             # 修改提示语 (Placeholder)
             self.soniox_terms_edit.setPlaceholderText(
@@ -2114,20 +2126,8 @@ class CloudTranscriptionDialog(QDialog):
         self.import_script_button.setToolTip(f"正在识别文件: {os.path.basename(file_path)}")
 
         # 更新按钮样式为处理中的状态
-        self.import_script_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(255, 165, 0, 180);
-                color: white;
-                border: 1px solid rgba(255, 165, 0, 255);
-                border-radius: 8px;
-                font-family: '楷体';
-                font-size: 15pt;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: rgba(255, 165, 0, 220);
-            }
-        """)
+        self.import_script_button.setStyleSheet(
+            theme.button_qss("primary", font_size=15, padding="6px 12px", radius=8))
 
         # 设置处理状态
         self.is_ocr_processing = True

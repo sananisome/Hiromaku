@@ -61,6 +61,7 @@ from config import (
 
 from utils.file_utils import resource_path
 from utils.user_friendly_logger import user_logger, MessageLevel
+from . import theme
 from .custom_widgets import TransparentWidget, CustomLabel, CustomLabel_title, StrokeCheckBoxWidget
 from .conversion_worker import ConversionWorker
 from .controllers.conversion_controller import ConversionController
@@ -435,6 +436,11 @@ class HealJimakuApp(QMainWindow):
         # 绘制背景图片
         if self.background and not self.background.isNull():
             painter.drawPixmap(self.rect(), self.background)
+            # 叠加暗色渐变 scrim，保证面板文字在任意背景图上的可读性
+            scrim = QLinearGradient(0, 0, 0, self.height())
+            scrim.setColorAt(0, theme.SCRIM_TOP)
+            scrim.setColorAt(1, theme.SCRIM_BOTTOM)
+            painter.fillRect(self.rect(), scrim)
         else:
             painter.fillRect(self.rect(), QColor(30, 30, 50, 230))
 
@@ -773,10 +779,10 @@ class HealJimakuApp(QMainWindow):
         # 设置窗口样式
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #f8f8f8;
+                background-color: transparent;
             }
             QWidget#centralWidget {
-                background-color: #f8f8f8;
+                background-color: transparent;
             }
         """)
 
@@ -886,7 +892,7 @@ class HealJimakuApp(QMainWindow):
         main_layout.addLayout(title_bar_layout)
         main_layout.addSpacing(20)
 
-        content_widget = TransparentWidget(bg_color=QColor(191,191,191,50))
+        content_widget = TransparentWidget(bg_color=QColor(14, 16, 24, 100))
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(25,25,40,25)  # 右侧留40px给滚动条（25+15）
         content_layout.setSpacing(15)
@@ -1054,7 +1060,7 @@ class HealJimakuApp(QMainWindow):
         format_label = CustomLabel("JSON 格式:")
         format_label.setFont(QFont(self.custom_font_family, 13, QFont.Weight.Bold))
         self.json_format_combo = QComboBox()
-        self.json_format_combo.addItems(["ElevenLabs(推荐)", "Soniox(推荐)", "Whisper(推荐)", "Deepgram", "AssemblyAI"])
+        self.json_format_combo.addItems(["ElevenLabs(推荐)", "Soniox(推荐)", "Whisper(推荐)", "Gemini", "Deepgram", "AssemblyAI"])
         self.json_format_combo.setObjectName("formatCombo")
 
         # 监听格式变化以控制AI纠错复选框
@@ -1122,10 +1128,10 @@ class HealJimakuApp(QMainWindow):
         
         self.start_button = QPushButton("开始转换")
         self.start_button.setFixedHeight(45)
-        self.start_button.setFont(QFont('楷体', 14, QFont.Weight.Bold))
+        self.start_button.setFont(QFont(self.custom_font_family, 14, QFont.Weight.Bold))
         self.start_button.setObjectName("startButton")
         self.start_button.clicked.connect(self.start_conversion)
-        # 设置默认样式（蓝色）
+        # 设置默认样式（樱花粉主按钮）
         self.start_button.setStyleSheet(self._get_default_start_btn_style())
         export_layout.addWidget(self.start_button)
 
@@ -1299,139 +1305,46 @@ class HealJimakuApp(QMainWindow):
             return (0, 0)
 
     def apply_styles(self):
-        group_title_red = "#B34A4A"; input_text_red = "#7a1723"; soft_orangebrown_text = "#CB7E47"
-        button_blue_bg = "rgba(100, 149, 237, 190)"; button_blue_hover = "rgba(80, 129, 217, 220)"
-        control_min_blue = "rgba(135, 206, 235, 180)"; control_min_hover = "rgba(110, 180, 210, 220)"
-        control_close_red = "rgba(255, 99, 71, 180)"; control_close_hover = "rgba(220, 70, 50, 220)"
-        settings_btn_bg = "rgba(120, 120, 150, 180)"; settings_btn_hover = "rgba(100, 100, 130, 210)"
-        group_bg = "rgba(52, 129, 184, 30)"
-        input_bg = "rgba(255, 255, 255, 30)"; input_hover_bg = "rgba(255, 255, 255, 40)"
-        input_focus_bg = "rgba(255, 255, 255, 50)"; input_border_color = "rgba(135, 206, 235, 90)"
-        input_focus_border_color = "#87CEEB"
-        log_bg = "rgba(0, 0, 0, 55)"; log_text_custom_color = "#E1F5FE"
-        combo_dropdown_bg = "rgba(250, 250, 250, 235)"; combo_dropdown_text_color = "#2c3e50"
-        combo_dropdown_border_color = "rgba(135, 206, 235, 150)"
-        combo_dropdown_selection_bg = button_blue_hover; combo_dropdown_selection_text_color = "#FFFFFF"
-        combo_dropdown_hover_bg = "rgba(173, 216, 230, 150)"
+        # 全部配色/字号都来自 ui.theme
+        arrow_url = theme.qss_url("dropdown_arrow_light.png")
+        if arrow_url == "none":
+            self._early_log("警告: 下拉箭头图标 'dropdown_arrow_light.png' 未找到。")
 
-        label_green_color = QColor(92, 138, 111).name()
+        ff = self.custom_font_family
 
-        qss_image_url = ""
-        raw_arrow_path = resource_path("dropdown_arrow.png")
-        if raw_arrow_path and os.path.exists(raw_arrow_path):
-            abs_arrow_path = os.path.abspath(raw_arrow_path)
-            formatted_path = abs_arrow_path.replace(os.sep, '/')
-            qss_image_url = f"url('{formatted_path}')"
-        else:
-            self._early_log(f"警告: 下拉箭头图标 'dropdown_arrow.png' 未找到。")
-
-        qss_checkmark_image_url = ""
-        raw_checkmark_path = resource_path('checkmark.png')
-        if raw_checkmark_path and os.path.exists(raw_checkmark_path):
-            abs_checkmark_path = os.path.abspath(raw_checkmark_path)
-            formatted_checkmark_path = abs_checkmark_path.replace(os.sep, '/')
-            qss_checkmark_image_url = f"url('{formatted_checkmark_path}')"
-        else:
-            self._early_log(f"警告: 选中标记图标 'checkmark.png' 未找到。")
-
-        free_button_bg = "rgba(100, 180, 120, 190)"; free_button_hover = "rgba(80, 160, 100, 220)"
-        # 取消模式的样式
-        cancel_button_bg = "rgba(200, 80, 80, 190)"; cancel_button_hover = "rgba(220, 100, 100, 220)"
-        # 批量按钮的样式
-        batch_button_bg = "rgba(180, 120, 80, 190)"; batch_button_hover = "rgba(160, 100, 60, 220)"
-
-        style = f"""
-            QGroupBox {{ font: bold 17pt '{self.custom_font_family}'; border: 1px solid rgba(135,206,235,80); border-radius:8px; margin-top:12px; background-color:{group_bg}; }}
-            QGroupBox::title {{ subcontrol-origin:margin; subcontrol-position:top left; left:15px; padding:2px 5px; color:{group_title_red}; font:bold 15pt '{self.custom_font_family}'; }}
-            QGroupBox#exportGroup::title {{ subcontrol-origin:padding; subcontrol-position:top left; left:15px; padding:2px 5px; color:{group_title_red}; font:bold 14.7pt '{self.custom_font_family}'; top:-5px; }}
-            QGroupBox#apiGroup::title {{ subcontrol-origin:padding; subcontrol-position:top left; left:15px; padding:2px 5px; color:{group_title_red}; font:bold 14.7pt '{self.custom_font_family}'; top:-5px; }}
-            QGroupBox#fileGroup::title {{ subcontrol-origin:padding; subcontrol-position:top left; left:15px; padding:2px 5px; color:{group_title_red}; font:bold 14.7pt '{self.custom_font_family}'; top:-5px; }}
-            QGroupBox#logGroup::title {{ subcontrol-origin:padding; subcontrol-position:top left; left:15px; padding:2px 5px; color:{group_title_red}; font:bold 14.7pt '{self.custom_font_family}'; top:-5px; }}
-            QLineEdit#apiKeyEdit, QLineEdit#pathEdit {{ background-color:{input_bg}; color:{input_text_red}; border:1px solid {input_border_color}; border-radius:5px; padding:6px; font:bold 11pt '{self.custom_font_family}'; min-height:1.8em; }}
-            QLineEdit#apiKeyEdit:hover, QLineEdit#pathEdit:hover {{ background-color:{input_hover_bg}; border:1px solid {input_focus_border_color}; }}
-        QPushButton#startButton:hover {{ background-color:{input_hover_bg}; }}
-            QLineEdit#apiKeyEdit:focus, QLineEdit#pathEdit:focus {{ background-color:{input_focus_bg}; border:1px solid {input_focus_border_color}; }}
-            QLineEdit#apiKeyEdit {{ font-family:'Consolas','Courier New',monospace; font-size:12pt; font-weight:bold; }}
-            QPushButton#browseButton:hover, QPushButton#startButton:hover {{ background-color:{input_hover_bg}; }}
-            QLineEdit#apiKeyEdit:hover, QLineEdit#pathEdit:hover {{ background-color:{input_hover_bg}; border:1px solid {input_focus_border_color}; }}
-            QPushButton#browseButton, QPushButton#startButton {{ background-color:{button_blue_bg}; color:white; border:none; border-radius:5px; font-family:'{self.custom_font_family}'; font-weight:bold; }}
-            QPushButton#browseButton {{ padding:6px 15px; font-size:10pt; }}
-            QPushButton#startButton:hover {{ background-color:{input_hover_bg}; }}
-            QPushButton#batchButton {{
-                background-color:{batch_button_bg}; color:white; border:none; border-radius:5px;
-                font-family:'{self.custom_font_family}'; font-weight:bold; font-size:10pt; padding:6px 15px;
-            }}
-            QPushButton#batchButton:hover {{ background-color:{batch_button_hover}; }}
-            QPushButton#freeButton {{
-                background-color:{free_button_bg}; color:white; border:none; border-radius:5px;
-                font-family:'{self.custom_font_family}'; font-weight:bold; font-size:10pt; padding:6px 15px;
-            }}
-            QPushButton#freeButton:hover {{ background-color:{free_button_hover}; }}
-            QPushButton#freeButton[cancelMode="true"] {{
-                background-color:{cancel_button_bg}; color:white; border:none; border-radius:5px;
-                font-family:'{self.custom_font_family}'; font-weight:bold; font-size:10pt; padding:6px 15px;
-            }}
-            QPushButton#freeButton[cancelMode="true"]:hover {{ background-color:{cancel_button_hover}; }}
-            QPushButton#testConnectionButton {{
-                background-color:{free_button_bg}; color:white; border:none; border-radius:5px;
-                font-family:'{self.custom_font_family}'; font-weight:bold; font-size:10pt; padding:6px 15px;
-            }}
-            QPushButton#testConnectionButton:hover {{ background-color:{free_button_hover}; }}
-            QPushButton#testConnectionButton:disabled {{ background-color:#cccccc; color:#666666; }}
-            QPushButton#startButton {{ padding:8px 25px; font:bold 14pt '{self.custom_font_family}'; }}
-            QPushButton#batchStartButton {{
-                background-color:{batch_button_bg}; color:white; border:none; border-radius:5px;
-                padding:8px 25px; font:bold 14pt '{self.custom_font_family}';
-            }}
-            QPushButton#batchStartButton:hover {{ background-color:{batch_button_hover}; }}
-            QPushButton#batchStartButton:disabled {{ background-color:rgba(100,100,100,150); color:#bbbbbb; }}
-            QPushButton#browseButton:hover, QPushButton#startButton:hover {{ background-color:{button_blue_hover}; }}
-            QPushButton#startButton:disabled {{ background-color:rgba(100,100,100,150); color:#bbbbbb; }}
-            QPushButton#minButton {{ background-color:{control_min_blue}; color:white; border:none; border-radius:15px; font-weight:bold; font-size:14pt; }}
-            QPushButton#minButton:hover {{ background-color:{control_min_hover}; }}
-            QPushButton#closeButton {{ background-color:{control_close_red}; color:white; border:none; border-radius:15px; font-weight:bold; font-size:14pt; }}
-            QPushButton#closeButton:hover {{ background-color:{control_close_hover}; }}
-            QPushButton#settingsButton, QPushButton#llmSettingsButton, QPushButton#backgroundSettingsButton {{
-                background-color:{settings_btn_bg}; color:white;
-                border:none; border-radius:19px;
-                font-weight:bold; font-size:11pt; padding: 0px;
-            }}
-            QPushButton#settingsButton:hover, QPushButton#llmSettingsButton:hover, QPushButton#backgroundSettingsButton:hover {{ background-color:{settings_btn_hover}; }}
-            QProgressBar#progressBar {{ border:1px solid rgba(135,206,235,80); border-radius:5px; text-align:center; background:rgba(0,0,0,40); height:22px; color:#f0f0f0; font-weight:bold; }}
-            QProgressBar#progressBar::chunk {{ background-color:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #5C8A6F,stop:1 #69CFF7); border-radius:5px; }}
-            QTextEdit#logArea {{ background-color:{log_bg}; border:1px solid rgba(135,206,235,80); border-radius:5px; color:{log_text_custom_color}; font-family:'{self.custom_font_family}'; font-size:11pt; font-weight:bold;}}
-            QComboBox#formatCombo {{
-                background-color:{input_bg}; color:{input_text_red};
-                border:1px solid {input_border_color}; border-radius:5px;
-                padding: 5px 8px 5px 8px;
-                font:bold 10pt '{self.custom_font_family}'; min-height:2.8em;
-                line-height: 1.4;
-            }}
-            QComboBox#formatCombo:hover {{ background-color:{input_hover_bg}; border-color:{input_focus_border_color}; }}
-            QComboBox#formatCombo:focus {{ background-color:{input_focus_bg}; border-color:{input_focus_border_color}; }}
-            QComboBox#formatCombo:on {{ background-color:{input_focus_bg}; border-color:{input_focus_border_color}; padding-right: 8px; }}
-            QComboBox#formatCombo::drop-down {{
-                subcontrol-origin: padding; subcontrol-position: center right;
-                width: 20px; border: none;
-            }}
-            QComboBox#formatCombo::down-arrow {{
-                image: {qss_image_url if qss_image_url else "none"};
-                width: 8px; height: 8px;
-            }}
-            QComboBox QAbstractItemView {{ background-color:{combo_dropdown_bg}; color:{combo_dropdown_text_color}; border:1px solid {combo_dropdown_border_color}; border-radius:5px; padding:4px; outline:0px; }}
-            QComboBox QAbstractItemView::item {{ padding:8px 10px; min-height:2.2em; border-radius:3px; background-color:transparent; font-size:10pt; }}
-            QComboBox QAbstractItemView::item:selected {{ background-color:{combo_dropdown_selection_bg}; color:{combo_dropdown_selection_text_color}; }}
-            QComboBox QAbstractItemView::item:hover {{ background-color:{combo_dropdown_hover_bg}; color:{combo_dropdown_text_color}; }}
-            CustomLabel, CustomLabel_title {{ background-color:transparent; }}
-            CustomLabel_title {{
-                font-family:'{self.custom_font_family}';
-                font-size:24pt;
-                font-weight:bold;
-                padding-top:3px;  /* 增加顶部内边距，避免字符被吞掉 */
-                padding-bottom:2px; /* 增加底部内边距，确保字符完整显示 */
-            }}
-            QLabel {{ background-color:transparent; }}
-            """
+        style = "\n".join([
+            theme.groupbox_qss(ff, 15),
+            theme.line_edit_qss(ff, 11, sel="QLineEdit#pathEdit"),
+            theme.line_edit_qss(ff, 12, sel="QLineEdit#apiKeyEdit"),
+            # API Key 用等宽字体，方便核对
+            "QLineEdit#apiKeyEdit { font-family: 'Consolas', 'Courier New', monospace; }",
+            theme.button_qss("neutral", sel="QPushButton#browseButton", font_family=ff, font_size=10),
+            theme.button_qss("neutral", sel="QPushButton#batchButton", font_family=ff, font_size=10),
+            theme.button_qss("neutral", sel="QPushButton#testConnectionButton", font_family=ff, font_size=10),
+            theme.button_qss("success", sel="QPushButton#freeButton", font_family=ff, font_size=10),
+            theme.button_qss("danger", sel='QPushButton#freeButton[cancelMode="true"]', font_family=ff, font_size=10),
+            theme.button_qss("primary", sel="QPushButton#batchStartButton", font_family=ff,
+                             font_size=14, padding="8px 25px", radius=8),
+            theme.button_qss("neutral", sel="QPushButton#minButton", font_family="Arial",
+                             font_size=14, padding="0px", radius=15),
+            theme.button_qss("danger", sel="QPushButton#closeButton", font_family="Arial",
+                             font_size=14, padding="0px", radius=15),
+            theme.button_qss("icon_light", sel="QPushButton#settingsButton", font_size=11,
+                             padding="0px", radius=19),
+            theme.button_qss("icon_light", sel="QPushButton#llmSettingsButton", font_size=11,
+                             padding="0px", radius=19),
+            theme.button_qss("icon_light", sel="QPushButton#backgroundSettingsButton", font_size=11,
+                             padding="0px", radius=19),
+            theme.progress_qss(sel="QProgressBar#progressBar"),
+            theme.log_qss(ff, 11, sel="QTextEdit#logArea"),
+            theme.combo_qss(ff, arrow_url, 10, sel="QComboBox#formatCombo"),
+            theme.scrollbar_qss(),
+            theme.tooltip_qss(),
+            "CustomLabel, CustomLabel_title { background-color: transparent; }",
+            f"CustomLabel_title {{ font-family: '{ff}'; font-size: 24pt; font-weight: bold; "
+            "padding-top: 3px; padding-bottom: 2px; }",
+            "QLabel { background-color: transparent; }",
+        ])
         self.setStyleSheet(style)
 
     def _get_source_format_from_combo(self) -> str:
@@ -1446,6 +1359,7 @@ class HealJimakuApp(QMainWindow):
             "ElevenLabs(推荐)": "elevenlabs",
             "Soniox(推荐)": "soniox",
             "Whisper(推荐)": "whisper",
+            "Gemini": "gemini",
             "Deepgram": "deepgram",
             "AssemblyAI": "assemblyai"
         }
@@ -2492,6 +2406,7 @@ class HealJimakuApp(QMainWindow):
                 'elevenlabs_api': 'ElevenLabs(推荐)',
                 'soniox': 'Soniox(推荐)',
                 'whisper': 'Whisper(推荐)',
+                'gemini': 'Gemini',
                 'deepgram': 'Deepgram',
                 'assemblyai': 'AssemblyAI'
             }
@@ -2783,18 +2698,10 @@ class HealJimakuApp(QMainWindow):
         if self.start_button:
             self.start_button.setEnabled(False)
             self.start_button.setText("正在停止...")
-            self.start_button.setStyleSheet("""
-                QPushButton {
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 rgba(255, 158, 64, 180), stop:1 rgba(200, 100, 30, 200));
-                    color: white;
-                    border: 1px solid rgba(255, 158, 64, 150);
-                    border-radius: 8px;
-                    font-family: '楷体';
-                    font-size: 15pt;
-                    font-weight: bold;
-                }
-            """)
+            self.start_button.setStyleSheet(
+                theme.button_qss("danger", font_family=self.custom_font_family,
+                                 font_size=15, padding="8px 25px", radius=8)
+            )
 
         try:
             self.conversion_controller.stop_task()
@@ -2832,17 +2739,10 @@ class HealJimakuApp(QMainWindow):
                 try:
                     self.start_button.setEnabled(True)
                     self.start_button.setText("停止任务 ⏹")
-                    self.start_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #d9534f;
-                    color: white;
-                    border-radius: 5px;
-                    font-weight: bold;
-                    font-family: 'Microsoft YaHei';
-                    font-size: 14pt;
-                }
-                QPushButton:hover { background-color: #c9302c; }
-            """)
+                    self.start_button.setStyleSheet(
+                        theme.button_qss("danger", font_family=self.custom_font_family,
+                                         font_size=14, padding="8px 25px", radius=8)
+                    )
                 except Exception as e:
                     self.log_message(f"设置停止按钮状态时出错: {e}")
 
@@ -2988,22 +2888,9 @@ class HealJimakuApp(QMainWindow):
                 QMessageBox.critical(self, "严重错误", f"程序遇到严重错误，建议重启应用: {e}")
 
     def _get_default_start_btn_style(self):
-        """获取开始按钮的默认样式"""
-        return """
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(64, 158, 255, 180), stop:1 rgba(30, 100, 200, 200));
-                color: white;
-                border: 1px solid rgba(64, 158, 255, 150);
-                border-radius: 8px;
-                font-family: '楷体';
-                font-size: 15pt;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background: rgba(64, 158, 255, 220);
-            }
-        """
+        """获取开始按钮的默认样式（樱花粉主按钮）"""
+        return theme.button_qss("primary", font_family=self.custom_font_family,
+                                font_size=15, padding="8px 25px", radius=8)
 
     def _clear_worker_references(self):
         self.log_message("清理旧的worker和线程引用...")
@@ -3289,38 +3176,27 @@ class HealJimakuApp(QMainWindow):
         if not obj_name:
             return
 
-        # 根据对象名获取对应的标题颜色
-        title_colors = {
-            'apiGroup': '#B34A4A',
-            'fileGroup': '#B34A4A',
-            'exportGroup': '#B34A4A',
-            'logGroup': '#B34A4A'
-        }
-
-        title_color = title_colors.get(obj_name, '#B34A4A')
-        group_bg = "rgba(52, 129, 184, 30)"
-
         # 动态计算标题相关尺寸
         title_padding = max(2, int(title_font_size * 0.2))
         title_left_margin = max(10, int(title_font_size * 0.8))
         border_radius = max(6, int(title_font_size * 0.5))
         margin_top = max(8, int(title_font_size * 0.6))
 
-        # 创建动态样式表
+        # 创建动态样式表（配色来自 ui.theme）
         style = f"""
             QGroupBox#{obj_name} {{
                 font: bold {title_font_size}pt '{self.custom_font_family}';
-                border: 1px solid rgba(135,206,235,80);
+                border: 1px solid {theme.PANEL_BORDER};
                 border-radius:{border_radius}px;
                 margin-top:{margin_top}px;
-                background-color:{group_bg};
+                background-color:{theme.PANEL_BG};
             }}
             QGroupBox#{obj_name}::title {{
                 subcontrol-origin:margin;
                 subcontrol-position:top left;
                 left:{title_left_margin}px;
                 padding:{title_padding}px 5px;
-                color:{title_color};
+                color:{theme.ACCENT};
                 font:bold {title_font_size}pt '{self.custom_font_family}';
             }}
         """
@@ -3639,10 +3515,10 @@ class HealJimakuApp(QMainWindow):
         self.drag_overlay_widget.setGeometry(self.rect())
 
         # 设置样式
-        self.drag_overlay_widget.setStyleSheet("""
-            QWidget#dragOverlay {
-                background-color: rgba(0, 0, 0, 150);
-            }
+        self.drag_overlay_widget.setStyleSheet(f"""
+            QWidget#dragOverlay {{
+                background-color: {theme.OVERLAY_SCRIM};
+            }}
         """)
 
         # 创建拖拽区域
@@ -3660,25 +3536,25 @@ class HealJimakuApp(QMainWindow):
         drag_area.setGeometry(area_x, area_y, area_width, area_height)
 
         # 设置拖拽区域样式
-        drag_area.setStyleSheet("""
-            QWidget#dragArea {
-                background-color: rgba(255, 255, 255, 180);
-                border: 3px dashed rgba(100, 149, 237, 200);
+        drag_area.setStyleSheet(f"""
+            QWidget#dragArea {{
+                background-color: {theme.OVERLAY_AREA_BG};
+                border: 2px dashed {theme.OVERLAY_BORDER};
                 border-radius: 15px;
-            }
+            }}
         """)
 
         # 添加文字标签
         label = QLabel("请拖拽到此处", drag_area)
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label.setStyleSheet("""
-            QLabel {
-                color: #2c3e50;
+        label.setStyleSheet(f"""
+            QLabel {{
+                color: {theme.OVERLAY_TEXT};
                 font-family: '{self.custom_font_family}';
                 font-size: 24pt;
                 font-weight: bold;
                 background-color: transparent;
-            }
+            }}
         """)
         label.setGeometry(0, 0, area_width, area_height)
 

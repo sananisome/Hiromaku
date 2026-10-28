@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import QWidget, QLabel, QCheckBox, QHBoxLayout
 from PyQt6.QtGui import QPainter, QColor, QBrush, QLinearGradient, QFont
 from PyQt6.QtCore import Qt, pyqtSignal
 from utils.file_utils import resource_path
+from . import theme
 
 # --- 自定义控件 ---
 class TransparentWidget(QWidget):
@@ -24,8 +25,8 @@ class CustomLabel(QLabel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # 默认颜色设置
-        self.main_color = QColor(92, 138, 111) # 默认主文本颜色 (绿色)
-        self.stroke_color = QColor(242, 234, 218) # 默认描边颜色 (白/米白色)
+        self.main_color = QColor(theme.LABEL_MAIN)
+        self.stroke_color = QColor(theme.LABEL_STROKE)
         # 设置透明背景
         self.setStyleSheet("background-color: transparent;")
 
@@ -70,27 +71,11 @@ class CustomLabel_title(QLabel):
     """用于标题的自定义描边QLabel。"""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # 强制设置楷体字体
-        title_font = QFont('楷体', 22, QFont.Weight.Bold)
-        # 强制设置字体族，防止回退
-        title_font.setStyleHint(QFont.StyleHint.SansSerif)
-        title_font.setFamily('楷体')
-
-        # 使用样式表强制设置字体，覆盖任何继承的字体设置
-        self.setStyleSheet("""
-            QLabel {
-                font-family: '楷体', 'KaiTi', 'STKaiti', 'SimSun', serif !important;
-                font-size: 22pt;
-                font-weight: bold;
-                background-color: transparent;
-            }
-        """)
-
-        self.setFont(title_font)
+        self.setStyleSheet("background-color: transparent;")
 
         # 默认颜色设置
-        self.main_color = QColor(87, 128, 183) # 默认主标题颜色 (蓝色)
-        self.stroke_color = QColor(242, 234, 218) # 默认描边颜色 (白/米白色)
+        self.main_color = QColor(theme.TITLE_MAIN)
+        self.stroke_color = QColor(theme.TITLE_STROKE)
 
     # 允许单独设置颜色
     def setCustomColors(self, main_color, stroke_color):
@@ -148,7 +133,7 @@ class StrokeCheckBoxWidget(QWidget):
                 QCheckBox::indicator {{
                     width: 18px;
                     height: 18px;
-                    border: 2px solid #5c8a6f;
+                    border: 2px solid {theme.CHECKBOX_BORDER};
                     border-radius: 4px;
                     background-color: transparent;
                 }}
@@ -156,35 +141,29 @@ class StrokeCheckBoxWidget(QWidget):
                     background-image: url('{checkmark_path.replace(os.sep, '/')}');
                     background-position: center;
                     background-repeat: no-repeat;
-                    border-color: #5c8a6f;
+                    border-color: {theme.CHECKBOX_BORDER};
                 }}
                 QCheckBox::indicator:hover {{
-                    border-color: #5c8a6f;
+                    border-color: {theme.ACCENT_HOVER};
                 }}
             """
         else:
             # 没有图标文件时使用CSS绘制的勾选标记
-            checkbox_style = """
-                QCheckBox::indicator {
+            checkbox_style = f"""
+                QCheckBox::indicator {{
                     width: 18px;
                     height: 18px;
-                    border: 2px solid #5c8a6f;
+                    border: 2px solid {theme.CHECKBOX_BORDER};
                     border-radius: 4px;
                     background-color: transparent;
-                }
-                QCheckBox::indicator:checked {
-                    background-color: #5c8a6f;
-                    border-color: #5c8a6f;
-                }
-                QCheckBox::indicator:checked::after {
-                    content: '✓';
-                    color: white;
-                    font-size: 12px;
-                    font-weight: bold;
-                }
-                QCheckBox::indicator:hover {
-                    border-color: #5c8a6f;
-                }
+                }}
+                QCheckBox::indicator:checked {{
+                    background-color: {theme.ACCENT};
+                    border-color: {theme.ACCENT};
+                }}
+                QCheckBox::indicator:hover {{
+                    border-color: {theme.ACCENT_HOVER};
+                }}
             """
 
         # 复选框
@@ -197,8 +176,8 @@ class StrokeCheckBoxWidget(QWidget):
         self.label.setStyleSheet(f"background-color: transparent; font-size: {font_size}pt; font-family: '{font_family}'; font-weight: bold;")
 
         self.label.setCustomColors(
-            main_color=QColor(92, 138, 111),  # 与主界面"API Key"相同的颜色
-            stroke_color=QColor(242, 234, 218)  # 米白色描边
+            main_color=QColor(theme.LABEL_MAIN),
+            stroke_color=QColor(theme.LABEL_STROKE)
         )
 
         layout.addWidget(self.checkbox)

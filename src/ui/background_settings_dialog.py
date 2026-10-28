@@ -13,6 +13,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QColor
 
 from ui.custom_widgets import CustomLabel_title, CustomLabel
+from ui import theme
 from config import (
     USER_CUSTOM_BACKGROUND_FOLDER_KEY, USER_ENABLE_RANDOM_BACKGROUND_KEY,
     USER_FIXED_BACKGROUND_PATH_KEY,
@@ -25,6 +26,39 @@ from config import (
 from utils.file_utils import resource_path
 import shutil
 import sys
+
+
+def _label_font(point_size: int, bold: bool = True) -> QFont:
+    """用应用默认字体族构造标签字体（不硬编码字体名；具体字体由 ui.theme 决定）"""
+    return theme.label_font(point_size, bold)
+
+
+def _disabled_edit_qss() -> str:
+    """禁用态输入框（置灰）"""
+    return f"""
+        QLineEdit {{
+            background-color: {theme.INPUT_DISABLED_BG};
+            color: {theme.BTN_DISABLED_TEXT};
+            border: 1px solid {theme.INPUT_DISABLED_BORDER};
+            border-radius: 5px;
+            padding: 8px;
+            font-size: 11pt;
+        }}
+    """
+
+
+def _missing_file_edit_qss() -> str:
+    """路径指向的文件已不存在（红框提示）"""
+    return f"""
+        QLineEdit {{
+            background-color: {theme.ERROR_SOFT_BG};
+            color: {theme.ERROR_SOFT_TEXT};
+            border: 1px solid {theme.ERROR_SOFT_BORDER};
+            border-radius: 5px;
+            padding: 8px;
+            font-size: 11pt;
+        }}
+    """
 
 
 class BackgroundSettingsDialog(QDialog):
@@ -50,12 +84,6 @@ class BackgroundSettingsDialog(QDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         container = QWidget(self)
         container.setObjectName("backgroundDialogContainer")
-        container.setStyleSheet("""
-            QWidget#backgroundDialogContainer {
-                background-color: rgba(60, 60, 80, 220);
-                                border-radius: 10px;
-            }
-        """)
 
         # 布局设置
         dialog_layout = QVBoxLayout(self)
@@ -67,14 +95,14 @@ class BackgroundSettingsDialog(QDialog):
         main_layout.setSpacing(18)
 
         # 颜色主题设置（与其他弹窗保持一致）
-        self.target_main_color = QColor(87, 128, 183)  # 蓝色主题
-        self.target_stroke_color = QColor(242, 234, 218)
+        self.target_main_color = QColor(theme.TITLE_MAIN)
+        self.target_stroke_color = QColor(theme.TITLE_STROKE)
 
         # 创建标题栏
         title_bar_layout = QHBoxLayout()
         title_label = CustomLabel_title("背景设置")
         title_label.setCustomColors(main_color=self.target_main_color, stroke_color=self.target_stroke_color)
-        title_font = QFont('楷体', 20, QFont.Weight.Bold)
+        title_font = theme.title_font()
         title_label.setFont(title_font)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -92,22 +120,7 @@ class BackgroundSettingsDialog(QDialog):
 
         # === 背景模式选择 ===
         mode_group = QGroupBox("背景模式")
-        mode_group.setStyleSheet("""
-            QGroupBox {
-                font: bold 14pt '楷体';
-                border: 2px solid rgba(87, 128, 183, 120);
-                border-radius: 8px;
-                margin-top: 12px;
-                padding-top: 10px;
-                background-color: rgba(255, 255, 255, 0.05);
-                color: #B34A4A;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 15px;
-                padding: 0 10px 0 10px;
-            }
-        """)
+        mode_group.setStyleSheet(theme.groupbox_qss(title_size=14))
 
         mode_layout = QVBoxLayout()
 
@@ -116,38 +129,38 @@ class BackgroundSettingsDialog(QDialog):
 
         # 选项1: 默认轮播
         option1_label = CustomLabel("默认背景图片轮播(推荐)")
-        option1_label.setFont(QFont('楷体', 16, QFont.Weight.Bold))
-        option1_label.setCustomColors("#5C8A6F", self.target_stroke_color)
+        option1_label.setFont(_label_font(16))
+        option1_label.setCustomColors(theme.LABEL_MAIN, theme.LABEL_STROKE)
 
         self.default_random_radio = QRadioButton()
-        self.default_random_radio.setStyleSheet("margin: 5px;")
+        self.default_random_radio.setStyleSheet(theme.radio_qss())
         self.mode_button_group.addButton(self.default_random_radio, 1)
 
         # 选项2: 默认固定
         option2_label = CustomLabel("使用当前的背景图片作为固定背景")
-        option2_label.setFont(QFont('楷体', 16, QFont.Weight.Bold))
-        option2_label.setCustomColors("#5C8A6F", self.target_stroke_color)
+        option2_label.setFont(_label_font(16))
+        option2_label.setCustomColors(theme.LABEL_MAIN, theme.LABEL_STROKE)
 
         self.default_fixed_radio = QRadioButton()
-        self.default_fixed_radio.setStyleSheet("margin: 5px;")
+        self.default_fixed_radio.setStyleSheet(theme.radio_qss())
         self.mode_button_group.addButton(self.default_fixed_radio, 2)
 
         # 选项3: 自定义轮播
         option3_label = CustomLabel("选择自定义文件夹轮播背景图")
-        option3_label.setFont(QFont('楷体', 16, QFont.Weight.Bold))
-        option3_label.setCustomColors("#5C8A6F", self.target_stroke_color)
+        option3_label.setFont(_label_font(16))
+        option3_label.setCustomColors(theme.LABEL_MAIN, theme.LABEL_STROKE)
 
         self.custom_random_radio = QRadioButton()
-        self.custom_random_radio.setStyleSheet("margin: 5px;")
+        self.custom_random_radio.setStyleSheet(theme.radio_qss())
         self.mode_button_group.addButton(self.custom_random_radio, 3)
 
         # 选项4: 自定义固定
         option4_label = CustomLabel("选择自定义图片作为固定背景")
-        option4_label.setFont(QFont('楷体', 16, QFont.Weight.Bold))
-        option4_label.setCustomColors("#5C8A6F", self.target_stroke_color)
+        option4_label.setFont(_label_font(16))
+        option4_label.setCustomColors(theme.LABEL_MAIN, theme.LABEL_STROKE)
 
         self.custom_fixed_radio = QRadioButton()
-        self.custom_fixed_radio.setStyleSheet("margin: 5px;")
+        self.custom_fixed_radio.setStyleSheet(theme.radio_qss())
         self.mode_button_group.addButton(self.custom_fixed_radio, 4)
 
         # 创建选项布局
@@ -180,30 +193,15 @@ class BackgroundSettingsDialog(QDialog):
 
         # === 自定义设置区域 ===
         custom_group = QGroupBox("自定义设置")
-        custom_group.setStyleSheet("""
-            QGroupBox {
-                font: bold 14pt '楷体';
-                border: 2px solid rgba(87, 128, 183, 120);
-                border-radius: 8px;
-                margin-top: 12px;
-                padding-top: 10px;
-                background-color: rgba(255, 255, 255, 0.05);
-                color: #B34A4A;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 15px;
-                padding: 0 10px 0 10px;
-            }
-        """)
+        custom_group.setStyleSheet(theme.groupbox_qss(title_size=14))
 
         custom_layout = QVBoxLayout()
 
         # 自定义文件夹路径
         folder_layout = QHBoxLayout()
         folder_label = CustomLabel("自定义文件夹:")
-        folder_label.setFont(QFont('楷体', 16, QFont.Weight.Bold))
-        folder_label.setCustomColors("#5C8A6F", self.target_stroke_color)
+        folder_label.setFont(_label_font(16))
+        folder_label.setCustomColors(theme.LABEL_MAIN, theme.LABEL_STROKE)
 
         self.custom_folder_edit = QLineEdit()
         # 从记忆的路径恢复，如果没有则从当前使用的路径恢复
@@ -215,23 +213,7 @@ class BackgroundSettingsDialog(QDialog):
         # 初始样式将在_update_custom_ui_state中设置
 
         self.browse_folder_button = QPushButton("浏览...")
-        self.browse_folder_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(70, 130, 220, 170);
-                color: white;
-                border: none;
-                border-radius: 5px;
-                padding: 8px 15px;
-                font-size: 11pt;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: rgba(107, 148, 203, 200);
-            }
-            QPushButton:pressed {
-                background-color: rgba(67, 108, 163, 200);
-            }
-        """)
+        self.browse_folder_button.setStyleSheet(theme.button_qss("neutral", font_size=11, padding="8px 15px", radius=5))
         self.browse_folder_button.clicked.connect(self._browse_background_folder)
 
         folder_layout.addWidget(folder_label)
@@ -243,31 +225,15 @@ class BackgroundSettingsDialog(QDialog):
         # 自定义固定图片路径
         custom_fixed_layout = QHBoxLayout()
         custom_fixed_label = CustomLabel("自定义固定图片:")
-        custom_fixed_label.setFont(QFont('楷体', 16, QFont.Weight.Bold))
-        custom_fixed_label.setCustomColors("#5C8A6F", self.target_stroke_color)
+        custom_fixed_label.setFont(_label_font(16))
+        custom_fixed_label.setCustomColors(theme.LABEL_MAIN, theme.LABEL_STROKE)
 
         self.custom_image_edit = QLineEdit()
         self.custom_image_edit.setPlaceholderText("选择单张图片作为固定背景...")
         # 初始样式将在_update_custom_ui_state中设置
 
         self.browse_image_button = QPushButton("选择图片...")
-        self.browse_image_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(70, 130, 220, 170);
-                color: white;
-                border: none;
-                border-radius: 5px;
-                padding: 8px 15px;
-                font-size: 11pt;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: rgba(107, 148, 203, 200);
-            }
-            QPushButton:pressed {
-                background-color: rgba(67, 108, 163, 200);
-            }
-        """)
+        self.browse_image_button.setStyleSheet(theme.button_qss("neutral", font_size=11, padding="8px 15px", radius=5))
         self.browse_image_button.clicked.connect(self._browse_custom_image)
 
         custom_fixed_layout.addWidget(custom_fixed_label)
@@ -281,14 +247,8 @@ class BackgroundSettingsDialog(QDialog):
         image_to_display = remembered_image if remembered_image else current_image
         if image_to_display:
             self.custom_image_edit.setText(image_to_display)
-            # 验证图片是否还存在
-            if not os.path.exists(image_to_display):
-                self.custom_image_edit.setStyleSheet(self.custom_image_edit.styleSheet() + """
-                    QLineEdit {
-                        background-color: rgba(255, 100, 100, 0.1);
-                        color: rgba(255, 200, 200, 0.8);
-                    }
-                """)
+            # 图片是否还存在由 _update_custom_ui_state() 统一判定（它会在初始化时调用，
+            # 以前这里单独设的红框会被它立刻覆盖掉，所以从没真正显示过）
 
         # 提示信息 - 移到自定义设置标题下方
         custom_group_layout = QVBoxLayout()
@@ -296,8 +256,8 @@ class BackgroundSettingsDialog(QDialog):
 
         # 提示信息
         info_label = CustomLabel("支持图片格式：PNG, JPG, JPEG, BMP, GIF | 文件夹为空时将使用默认背景")
-        info_label.setFont(QFont('楷体', 12, QFont.Weight.Normal))
-        info_label.setCustomColors("#5C8A6F", self.target_stroke_color)
+        info_label.setFont(_label_font(12, bold=False))
+        info_label.setCustomColors(theme.LABEL_MAIN, theme.LABEL_STROKE)
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_label.setWordWrap(True)
         custom_layout.addWidget(info_label)
@@ -313,28 +273,9 @@ class BackgroundSettingsDialog(QDialog):
         self.confirm_button = QPushButton("确定")
         self.cancel_button = QPushButton("取消")
 
-        button_style = """
-            QPushButton {
-                background-color: rgba(70, 130, 220, 170);
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-family: '楷体';
-                font-weight: bold;
-                font-size: 14pt;
-                padding: 8px 20px;
-                min-width: 80px;
-            }
-            QPushButton:hover {
-                background-color: rgba(107, 148, 203, 200);
-            }
-            QPushButton:pressed {
-                background-color: rgba(67, 108, 163, 200);
-            }
-        """
-
-        self.confirm_button.setStyleSheet(button_style)
-        self.cancel_button.setStyleSheet(button_style)
+        self.confirm_button.setObjectName("dialogPrimaryButton")
+        self.confirm_button.setStyleSheet(theme.button_qss("primary", font_size=14, padding="8px 20px"))
+        self.cancel_button.setStyleSheet(theme.button_qss("neutral", font_size=14, padding="8px 20px"))
 
         self.confirm_button.clicked.connect(self.accept_settings)
         self.cancel_button.clicked.connect(self.reject)
@@ -349,25 +290,25 @@ class BackgroundSettingsDialog(QDialog):
 
         self.resize(900, 576)
 
-        # 设置整体样式，包括关闭按钮
-        style = """
-            QPushButton#dialogCloseButton {
-                background-color: rgba(255, 99, 71, 160);
-                color: white;
+        # 设置整体样式，包括容器和关闭按钮
+        self.setStyleSheet("\n".join([
+            theme.dialog_container_qss("backgroundDialogContainer"),
+            f"""
+            QPushButton#dialogCloseButton {{
+                background-color: {theme.CLOSE_BG};
+                color: {theme.CLOSE_FG};
                 border: none;
                 border-radius: 15px;
                 font-weight: bold;
                 font-family: Arial, sans-serif;
                 font-size: 14pt;
                 padding: 0px;
-                min-width: 30px; max-width:30px;
-                min-height:30px; max-height:30px;
-            }
-            QPushButton#dialogCloseButton:hover {
-                background-color: rgba(255, 99, 71, 200);
-            }
-        """
-        self.setStyleSheet(style)
+                min-width: 30px; max-width: 30px;
+                min-height: 30px; max-height: 30px;
+            }}
+            QPushButton#dialogCloseButton:hover {{ background-color: {theme.CLOSE_HOVER_BG}; color: {theme.CLOSE_HOVER_FG}; }}
+            """,
+        ]))
 
     def _get_user_data_dir(self) -> str:
         """获取用户数据目录路径 - 返回固定背景目录"""
@@ -526,61 +467,23 @@ class BackgroundSettingsDialog(QDialog):
         self.browse_image_button.setEnabled(is_custom_fixed_mode)
 
         if is_custom_random_mode:
-            self.custom_folder_edit.setStyleSheet("""
-                QLineEdit {
-                    background-color: rgba(255, 255, 255, 0.15);
-                    color: white;
-                    border: 1px solid rgba(255, 255, 255, 0.4);
-                    border-radius: 5px;
-                    padding: 8px;
-                    font-size: 11pt;
-                }
-                QLineEdit:focus {
-                    border-color: rgba(87, 128, 183, 0.8);
-                    background-color: rgba(255, 255, 255, 0.2);
-                }
-            """)
+            self.custom_folder_edit.setStyleSheet(theme.line_edit_qss(font_size=11))
             self.browse_folder_button.setEnabled(True)
         else:
-            self.custom_folder_edit.setStyleSheet("""
-                QLineEdit {
-                    background-color: rgba(255, 255, 255, 0.05);
-                                        color: rgba(255, 255, 255, 0.5);
-                    border: 1px solid rgba(255, 255, 255, 0.2);
-                    border-radius: 5px;
-                    padding: 8px;
-                    font-size: 11pt;
-                }
-            """)
+            self.custom_folder_edit.setStyleSheet(_disabled_edit_qss())
             self.browse_folder_button.setEnabled(False)
 
-        # 设置自定义图片选择框的样式
+        # 设置自定义图片选择框的样式：启用时，路径指向的图片已不存在就显示红框
         if is_custom_fixed_mode:
-            self.custom_image_edit.setStyleSheet("""
-                QLineEdit {
-                    background-color: rgba(255, 255, 255, 0.15);
-                    color: white;
-                    border: 1px solid rgba(255, 255, 255, 0.4);
-                    border-radius: 5px;
-                    padding: 8px;
-                    font-size: 11pt;
-                }
-                QLineEdit:focus {
-                    border-color: rgba(87, 128, 183, 0.8);
-                    background-color: rgba(255, 255, 255, 0.2);
-                }
-            """)
+            image_path = self.custom_image_edit.text().strip()
+            if image_path and not os.path.exists(image_path):
+                self.custom_image_edit.setStyleSheet(_missing_file_edit_qss())
+                self.custom_image_edit.setToolTip(f"图片已不存在：{image_path}")
+            else:
+                self.custom_image_edit.setStyleSheet(theme.line_edit_qss(font_size=11))
+                self.custom_image_edit.setToolTip("")
         else:
-            self.custom_image_edit.setStyleSheet("""
-                QLineEdit {
-                    background-color: rgba(255, 255, 255, 0.05);
-                                        color: rgba(255, 255, 255, 0.5);
-                    border: 1px solid rgba(255, 255, 255, 0.2);
-                    border-radius: 5px;
-                    padding: 8px;
-                    font-size: 11pt;
-                }
-            """)
+            self.custom_image_edit.setStyleSheet(_disabled_edit_qss())
 
     def _browse_background_folder(self):
         """浏览并选择自定义背景文件夹"""
@@ -619,20 +522,8 @@ class BackgroundSettingsDialog(QDialog):
             # 验证通过，设置路径
             self.custom_image_edit.setText(file_path)
             # 重置样式为正常状态
-            self.custom_image_edit.setStyleSheet("""
-                QLineEdit {
-                    background-color: rgba(255, 255, 255, 0.1);
-                    color: white;
-                    border: 1px solid rgba(255, 255, 255, 0.3);
-                    border-radius: 5px;
-                    padding: 8px;
-                    font-size: 11pt;
-                }
-                QLineEdit:focus {
-                    border-color: rgba(87, 128, 183, 0.8);
-                    background-color: rgba(255, 255, 255, 0.15);
-                }
-            """)
+            self.custom_image_edit.setStyleSheet(theme.line_edit_qss(font_size=11))
+            self.custom_image_edit.setToolTip("")
 
     def accept_settings(self):
         """应用设置并关闭对话框"""

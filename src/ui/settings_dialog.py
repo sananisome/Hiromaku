@@ -1,4 +1,3 @@
-import os
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSlider,
     QDialogButtonBox, QSpacerItem, QSizePolicy, QDoubleSpinBox, QSpinBox, QWidget,
@@ -8,11 +7,11 @@ from PyQt6.QtCore import Qt, pyqtSignal, QLocale
 from PyQt6.QtGui import QFont, QColor, QIcon
 
 from ui.custom_widgets import CustomLabel
+from ui import theme
 from config import (
     DEFAULT_MIN_DURATION_TARGET, DEFAULT_MAX_DURATION,
     DEFAULT_MAX_CHARS_PER_LINE, DEFAULT_DEFAULT_GAP_MS
 )
-from utils.file_utils import resource_path
 
 
 class SettingsDialog(QDialog):
@@ -31,12 +30,6 @@ class SettingsDialog(QDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         container = QWidget(self)
         container.setObjectName("settingsDialogContainer")
-        container.setStyleSheet("""
-            QWidget#settingsDialogContainer {
-                background-color: rgba(60, 60, 80, 220);
-                border-radius: 10px;
-            }
-        """)
 
         # 布局设置
         dialog_layout = QVBoxLayout(self)
@@ -48,14 +41,14 @@ class SettingsDialog(QDialog):
         main_layout.setSpacing(18)
 
         # 颜色主题设置
-        self.target_main_color = QColor(87, 128, 183)
-        self.target_stroke_color = QColor(242, 234, 218)
+        self.target_main_color = QColor(theme.TITLE_MAIN)
+        self.target_stroke_color = QColor(theme.TITLE_STROKE)
 
         # 创建标题栏
         title_bar_layout = QHBoxLayout()
         title_label = CustomLabel("SRT高级参数设置")
         title_label.setCustomColors(main_color=self.target_main_color, stroke_color=self.target_stroke_color)
-        title_font = QFont('楷体', 20, QFont.Weight.Bold)
+        title_font = theme.title_font()
         title_label.setFont(title_font)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         close_button = QPushButton("×")
@@ -102,6 +95,7 @@ class SettingsDialog(QDialog):
         button_layout.setSpacing(15)
         button_layout.addStretch()
         self.confirm_button = QPushButton("确定")
+        self.confirm_button.setObjectName("dialogPrimaryButton")
         self.cancel_button = QPushButton("取消")
         self.reset_button = QPushButton("重置")
         self.confirm_button.clicked.connect(self.accept_settings)
@@ -118,109 +112,25 @@ class SettingsDialog(QDialog):
 
     def apply_styles(self):
         """应用自定义样式到对话框组件"""
-        qss_image_up_arrow = "none"
-        qss_image_down_arrow = "none"
-        up_arrow_path_str = resource_path('up_arrow.png')
-        down_arrow_path_str = resource_path('down_arrow.png')
-
-        if up_arrow_path_str and os.path.exists(up_arrow_path_str):
-            qss_image_up_arrow = f"url('{up_arrow_path_str.replace(os.sep, '/')}')"
-        if down_arrow_path_str and os.path.exists(down_arrow_path_str):
-            qss_image_down_arrow = f"url('{down_arrow_path_str.replace(os.sep, '/')}')"
-
-        style = f"""
-            QWidget#settingsDialogContainer {{
-                background-color: rgba(60, 60, 80, 220);
-                border-radius: 10px;
-            }}
-            CustomLabel {{
-                background-color: transparent;
-            }}
-            QPushButton {{
-                background-color: rgba(100, 149, 237, 170); color: white;
-                border: 1px solid rgba(135, 206, 235, 100);
-                border-radius: 6px;
-                font-family: '楷体'; font-weight: bold; font-size: 14pt;
-                padding: 8px 20px;
-                min-width: 80px;
-            }}
-            QPushButton:hover {{ background-color: rgba(120, 169, 247, 200); }}
-            QPushButton:pressed {{ background-color: rgba(80, 129, 217, 200); }}
-
+        style = "\n".join([
+            theme.dialog_container_qss("settingsDialogContainer"),
+            "CustomLabel { background-color: transparent; }",
+            theme.button_qss("neutral", font_size=14, padding="8px 20px"),
+            theme.button_qss("primary", sel="QPushButton#dialogPrimaryButton",
+                             font_size=14, padding="8px 20px"),
+            f"""
             QPushButton#dialogCloseButton {{
-                background-color: rgba(255, 99, 71, 160); color: white;
+                background-color: {theme.CLOSE_BG}; color: {theme.CLOSE_FG};
                 border: none; border-radius: 15px;
-                font-weight:bold; font-size: 12pt;
-                padding: 0px; min-width: 30px; max-width:30px; min-height:30px; max-height:30px;
+                font-weight: bold; font-size: 12pt;
+                padding: 0px; min-width: 30px; max-width: 30px; min-height: 30px; max-height: 30px;
             }}
-            QPushButton#dialogCloseButton:hover {{ background-color: rgba(255, 99, 71, 200); }}
-
-            QSlider::groove:horizontal {{
-                border: 1px solid rgba(120,120,120,150);
-                background: rgba(255,255,255,60);
-                height: 10px;
-                border-radius: 5px;
-            }}
-            QSlider::handle:horizontal {{
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #A0A0A0, stop:1 #707070);
-                border: 1px solid #4A4A4A;
-                width: 20px;
-                margin: -5px 0;
-                border-radius: 10px;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #5C8A6F, stop:1 #69CFF7);
-                border: 1px solid rgba(120,120,120,150);
-                height: 10px;
-                border-radius: 5px;
-            }}
-
-            QSpinBox, QDoubleSpinBox {{
-                background-color: rgba(255, 255, 255, 50);
-                color: #EAEAEA;
-                border: 1px solid rgba(135, 206, 235, 120);
-                border-radius: 5px;
-                font-family: 'Microsoft YaHei';
-                font-size: 15pt;
-                min-height: 36px;
-                padding-top: 2px;
-                padding-bottom: 2px;
-                padding-left: 8px;
-                padding-right: 3px;
-            }}
-
-            QSpinBox::up-button, QDoubleSpinBox::up-button,
-            QSpinBox::down-button, QDoubleSpinBox::down-button {{
-                subcontrol-origin: border;
-                width: 28px;
-                border: none;
-                background-color: rgba(135, 206, 235, 110);
-            }}
-
-            QSpinBox::up-button, QDoubleSpinBox::up-button {{
-                 subcontrol-position: top right;
-                 border-top-right-radius: 4px;
-            }}
-            QSpinBox::down-button, QDoubleSpinBox::down-button {{
-                 subcontrol-position: bottom right;
-                 border-bottom-right-radius: 4px;
-                 border-top: 1px solid rgba(100,120,140,80);
-            }}
-
-            QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
-            QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
-                background-color: rgba(135, 206, 235, 190);
-            }}
-
-            QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
-                image: {qss_image_up_arrow};
-                width: 14px; height: 14px;
-            }}
-            QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
-                image: {qss_image_down_arrow};
-                width: 14px; height: 14px;
-            }}
-        """
+            QPushButton#dialogCloseButton:hover {{ background-color: {theme.CLOSE_HOVER_BG}; color: {theme.CLOSE_HOVER_FG}; }}
+            """,
+            theme.slider_qss(),
+            theme.spinbox_qss(font_size=15, up_url=theme.qss_url("up_arrow_light.png"),
+                              down_url=theme.qss_url("down_arrow_light.png")),
+        ])
         self.setStyleSheet(style)
 
     def _create_slider_spinbox_row(self, label_text: str, min_val, max_val, step, decimals: int, current_val):
@@ -228,8 +138,9 @@ class SettingsDialog(QDialog):
         row_layout = QHBoxLayout()
         row_layout.setSpacing(10)
         label = CustomLabel(label_text)
-        label.setFont(QFont('楷体', 16, QFont.Weight.Bold))
-        label.setCustomColors(main_color=self.target_main_color, stroke_color=self.target_stroke_color)
+        label_font = theme.label_font(16)
+        label.setFont(label_font)
+        label.setCustomColors(main_color=QColor(theme.LABEL_MAIN), stroke_color=QColor(theme.LABEL_STROKE))
 
         # 根据小数位数选择合适的输入框类型
         spin_box: QWidget

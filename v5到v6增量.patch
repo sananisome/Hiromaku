@@ -1,0 +1,210 @@
+--- a/src/ui/cloud_transcription_dialog.py
++++ b/src/ui/cloud_transcription_dialog.py
+@@ -7,7 +7,7 @@
+     QFormLayout, QScrollArea, QFrame, QStackedWidget, QGridLayout, QListWidget,
+     QListWidgetItem, QApplication, QToolButton
+ )
+-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QSize, QThread
++from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QSize, QThread, QEvent
+ from PyQt6.QtGui import QFont, QColor, QIcon, QPixmap
+ 
+ from ui.custom_widgets import CustomLabel, TransparentWidget, StrokeCheckBoxWidget
+@@ -76,6 +76,10 @@
+     JSON_AVAILABLE = False
+ 
+ 
++# 可拖进来的音视频格式（与主窗口拖拽保持一致）
++_MEDIA_EXTS = ('.mp3', '.wav', '.flac', '.m4a', '.ogg', '.opus', '.aac', '.webm', '.mp4', '.mov')
++
++
+ def _label_font(point_size: int, bold: bool = True) -> QFont:
+     """用应用默认字体族构造标签字体（不硬编码字体名；具体字体由 ui.theme 决定）"""
+     return theme.label_font(point_size, bold)
+@@ -765,6 +769,9 @@
+         # 初始化时检查批量模式状态
+         QTimer.singleShot(100, self._check_and_update_batch_mode_ui)
+ 
++        # 支持把音视频文件 / 文件夹直接拖进对话框
++        self._setup_file_drop()
++
+     def showEvent(self, event):
+         super().showEvent(event)
+         # 确保弹窗尺寸正确（修复拖拽文件打开时高度不够的问题）
+@@ -865,6 +872,7 @@
+     def _create_file_selection_area(self, layout):
+         file_group = QGroupBox("音频文件")
+         file_group.setStyleSheet(self._get_group_style())
++        self.file_group = file_group  # 拖拽时高亮用
+         
+         file_layout = QVBoxLayout(file_group)
+         file_layout.setSpacing(8)
+@@ -874,7 +882,7 @@
+         input_layout.setSpacing(10)
+ 
+         self.file_path_entry = QLineEdit()
+-        self.file_path_entry.setPlaceholderText("请点击浏览按钮选择音频文件...") 
++        self.file_path_entry.setPlaceholderText("点击「浏览」，或把音频 / 视频直接拖进这个窗口...")
+         self.file_path_entry.setReadOnly(True)
+         self.file_path_entry.setStyleSheet(self._get_input_style())
+         self.file_path_entry.setMinimumHeight(38)
+@@ -889,7 +897,7 @@
+         input_layout.addWidget(browse_btn)
+         file_layout.addLayout(input_layout)
+ 
+-        hint_label = QLabel("📁 支持批量选择多个音频文件进行处理")
++        hint_label = QLabel("📁 支持批量：可多选，也可一次拖入多个文件或整个文件夹")
+         hint_label.setStyleSheet(f"color: {theme.HINT_TEXT}; font-size: 13px; font-weight: bold; padding-left: 2px;")
+         file_layout.addWidget(hint_label)
+ 
+@@ -1708,17 +1716,142 @@
+ 
+     def _select_audio_file(self):
+         curr_dir = os.path.dirname(self.selected_audio_file_path) if self.selected_audio_file_path else os.path.expanduser("~")
+-        files, _ = QFileDialog.getOpenFileNames(self, "选择音频", curr_dir, "音频文件 (*.mp3 *.wav *.flac *.m4a *.ogg *.aac);;所有文件 (*)")
++        patterns = " ".join("*" + ext for ext in _MEDIA_EXTS)
++        files, _ = QFileDialog.getOpenFileNames(self, "选择音频", curr_dir, f"音视频文件 ({patterns});;所有文件 (*)")
+         if files:
+-            if len(files) == 1:
+-                self.selected_audio_file_path = files[0]
+-                self.selected_audio_files = []
++            self._apply_selected_audio_files(files)
++
++    def _apply_selected_audio_files(self, files):
++        """浏览选择和拖拽共用：1 个文件走单文件模式，多个走批量模式"""
++        if len(files) == 1:
++            self.selected_audio_file_path = files[0]
++            self.selected_audio_files = []
++        else:
++            self.selected_audio_file_path = ""
++            self.selected_audio_files = list(files)
++        self._update_file_display()
++        # 检查并更新批量模式下的 UI 状态
++        self._check_and_update_batch_mode_ui()
++
++    # --- 拖拽选择音频 ---
++    def _setup_file_drop(self):
++        """整个对话框都能接收拖入的音视频。
++
++        输入框、文本框这类本身就接受拖放的控件会抢走拖拽事件，所以给它们装事件过滤器：
++        拖进来的是音视频才由这里接管，拖普通文字进去仍保持原来的行为。"""
++        self.setAcceptDrops(True)
++        self._drop_pending = None      # (files, skipped)，在 DragEnter 时算好，避免 DragMove 反复扫描文件夹
++        self._drop_highlight = False
++        self._drop_saved_text = None
++        for w in self.findChildren(QWidget):
++            if w is not self and w.acceptDrops():
++                w.installEventFilter(self)
++
++    def _media_files_from_mime(self, mime):
++        """从拖拽数据里取出可转录的本地文件；文件夹取其第一层里的音视频。返回 (files, 跳过数)"""
++        if mime is None or not mime.hasUrls():
++            return [], 0
++        files, skipped = [], 0
++        for url in mime.urls():
++            if not url.isLocalFile():
++                skipped += 1
++                continue
++            path = url.toLocalFile()
++            if os.path.isdir(path):
++                try:
++                    names = sorted(os.listdir(path))
++                except OSError:
++                    skipped += 1
++                    continue
++                files.extend(os.path.join(path, n) for n in names
++                             if n.lower().endswith(_MEDIA_EXTS) and os.path.isfile(os.path.join(path, n)))
++            elif path.lower().endswith(_MEDIA_EXTS) and os.path.isfile(path):
++                files.append(path)
+             else:
+-                self.selected_audio_file_path = ""
+-                self.selected_audio_files = files
+-            self._update_file_display()
+-            # 检查并更新批量模式下的 UI 状态
+-            self._check_and_update_batch_mode_ui()
++                skipped += 1
++        seen = set()
++        files = [f for f in files if not (f in seen or seen.add(f))]
++        return files, skipped
++
++    def _set_drop_highlight(self, on, count=0):
++        group = getattr(self, 'file_group', None)
++        entry = getattr(self, 'file_path_entry', None)
++        if on:
++            if group is not None:
++                group.setStyleSheet(self._get_group_style() +
++                                    f"\nQGroupBox {{ border: 2px dashed {theme.ACCENT}; }}")
++            if entry is not None:
++                if not self._drop_highlight:
++                    self._drop_saved_text = entry.text()
++                entry.setText(f"松手即可添加 {count} 个文件" if count > 1 else "松手即可添加这个文件")
++        elif self._drop_highlight:
++            if group is not None:
++                group.setStyleSheet(self._get_group_style())
++            if entry is not None and self._drop_saved_text is not None:
++                entry.setText(self._drop_saved_text)
++            self._drop_saved_text = None
++        self._drop_highlight = on
++
++    def _handle_drag_enter(self, event) -> bool:
++        files, skipped = self._media_files_from_mime(event.mimeData())
++        if not files:
++            self._drop_pending = None
++            return False
++        self._drop_pending = (files, skipped)
++        event.acceptProposedAction()
++        self._set_drop_highlight(True, len(files))
++        return True
++
++    def _handle_drop(self, event) -> bool:
++        pending = self._drop_pending or self._media_files_from_mime(event.mimeData())
++        self._drop_pending = None
++        self._set_drop_highlight(False)
++        files, skipped = pending
++        if not files:
++            return False
++        event.acceptProposedAction()
++        self._apply_selected_audio_files(files)
++        if skipped:
++            # 放到事件循环里再弹，避免在拖放回调里开模态框卡住来源程序（比如资源管理器）
++            QTimer.singleShot(0, lambda n=skipped: QMessageBox.information(
++                self, "已忽略部分文件", f"有 {n} 个项目不是支持的音视频格式，已跳过。\n"
++                                       f"支持：{' '.join(_MEDIA_EXTS)}"))
++        return True
++
++    def dragEnterEvent(self, event):
++        if not self._handle_drag_enter(event):
++            event.ignore()
++
++    def dragMoveEvent(self, event):
++        if self._drop_pending:
++            event.acceptProposedAction()
++        else:
++            event.ignore()
++
++    def dragLeaveEvent(self, event):
++        self._set_drop_highlight(False)
++        super().dragLeaveEvent(event)
++
++    def dropEvent(self, event):
++        if not self._handle_drop(event):
++            event.ignore()
++
++    def eventFilter(self, obj, event):
++        et = event.type()
++        if et == QEvent.Type.DragEnter:
++            if self._handle_drag_enter(event):
++                return True
++        elif et == QEvent.Type.DragMove:
++            if self._drop_pending:
++                event.acceptProposedAction()
++                return True
++        elif et == QEvent.Type.DragLeave:
++            if self._drop_highlight:
++                self._set_drop_highlight(False)
++        elif et == QEvent.Type.Drop:
++            if self._drop_pending and self._handle_drop(event):
++                return True
++        return super().eventFilter(obj, event)
+ 
+     def _check_and_update_batch_mode_ui(self):
+         """

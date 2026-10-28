@@ -29,3 +29,6 @@ MANIFEST
 Thumbs.db
 *.backup
 /.kiro
+
+# Packaging venv (do not commit)
+.venv_packaging/

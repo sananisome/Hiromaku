@@ -54,7 +54,7 @@ class ConversionController(QObject):
             output_dir: 输出目录
             mode: 处理模式 ("local_json", "free_transcription", "cloud_transcription")
             free_params: 免费转录参数 (旧版兼容)
-            source_format: JSON文件格式 (elevenlabs, whisper, deepgram, assemblyai, elevenlabs_api, soniox)
+            source_format: JSON文件格式 (elevenlabs, whisper, deepgram, assemblyai, elevenlabs_api, soniox, gemini)
             cloud_params: 云端转录参数
             enable_ai_correction: AI错词校对开关
         """
@@ -71,7 +71,7 @@ class ConversionController(QObject):
             output_dir: 输出目录
             mode: 处理模式 ("local_json", "free_transcription", "cloud_transcription")
             free_params: 免费转录参数 (旧版兼容)
-            source_format: JSON文件格式 (elevenlabs, whisper, deepgram, assemblyai, elevenlabs_api, soniox)
+            source_format: JSON文件格式 (elevenlabs, whisper, deepgram, assemblyai, elevenlabs_api, soniox, gemini)
             cloud_params: 云端转录参数
             enable_ai_correction: AI错词校对开关
         """
@@ -192,7 +192,7 @@ class ConversionController(QObject):
             output_dir: 输出目录
             mode: 处理模式 ("local_json", "free_transcription", "cloud_transcription")
             free_params: 免费转录参数 (旧版兼容)
-            source_format: JSON文件格式 (elevenlabs, whisper, deepgram, assemblyai, elevenlabs_api, soniox)
+            source_format: JSON文件格式 (elevenlabs, whisper, deepgram, assemblyai, elevenlabs_api, soniox, gemini)
             cloud_params: 云端转录参数
         """
         # 【修复】在创建新线程前，先清理前一个线程

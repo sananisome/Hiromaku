@@ -368,6 +368,11 @@ class ConversionWorker(QObject):
             except json.JSONDecodeError as e:
                 self.signals.finished.emit(f"错误：解析JSON文件 '{generated_json_path}' 失败: {e}", False); return
 
+            # Gemini Transcribe 的 JSON 选成了别的格式时自动纠正，后面 SRT 处理模式也跟着用 gemini（基础处理 Mode A）
+            if actual_source_format != "gemini" and self.transcription_parser.is_gemini_transcribe(raw_api_data):
+                self.signals.log_message.emit(f"检测到 Gemini Transcribe 输出，格式由 '{actual_source_format}' 自动改为 'gemini'")
+                actual_source_format = "gemini"
+
             parsed_transcription_data: Optional[ParsedTranscription] = self.transcription_parser.parse(raw_api_data, actual_source_format)
             
             if parsed_transcription_data is None:
