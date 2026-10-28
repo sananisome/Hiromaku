@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-治幕 (Heal-Jimaku) - 字幕处理工具主程序
+治幕 (Hiromaku) - 字幕处理工具主程序
 负责应用初始化、高DPI设置和主窗口启动
 """
 
@@ -94,13 +94,13 @@ if __name__ == "__main__":
     except Exception as e_generic:
         print(f"警告: 设置高DPI属性时发生未知错误: {e_generic}")
 
-    app.setApplicationName("HealJimaku")
+    app.setApplicationName("Hiromaku")
 
     # Windows系统设置应用ID
     if os.name == 'nt':
         try:
             import ctypes
-            myappid_str = 'fuxiaomoke.HealJimaku.Refactored.Project.0.0.3'
+            myappid_str = 'sananisome.Hiromaku.Project.1.0.0'
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid_str)
         except Exception:
             pass

@@ -86,7 +86,7 @@ class HealJimakuApp(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Heal-Jimaku (治幕)")
+        self.setWindowTitle("Hiromaku (治幕)")
 
         # 初始化核心组件
         self.srt_processor = SrtProcessor()
@@ -862,7 +862,7 @@ class HealJimakuApp(QMainWindow):
         self.background_settings_button.clicked.connect(self.open_background_settings_dialog)
         title_bar_layout.addWidget(self.background_settings_button)
 
-        title = CustomLabel_title("Heal-Jimaku (治幕)")
+        title = CustomLabel_title("Hiromaku (治幕)")
         title_font = QFont(self.custom_font_family, 23)  # 从24pt减小到23pt
         title_font.setBold(True)
         title.setFont(title_font)

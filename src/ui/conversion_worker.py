@@ -531,7 +531,7 @@ class ConversionWorker(QObject):
                 self.signals.log_message.emit(f"正在生成校对报告...")
                 try:
                     with open(correction_hints_filepath, "w", encoding="utf-8") as f:
-                        f.write("Heal-Jimaku 校对提示报告\n")
+                        f.write("Hiromaku 校对提示报告\n")
                         f.write("=" * 50 + "\n\n")
                         f.write(f"生成时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                         f.write(f"源格式: {actual_source_format}\n")

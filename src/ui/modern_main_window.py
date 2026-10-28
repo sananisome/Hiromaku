@@ -207,7 +207,7 @@ class ModernHealJimakuApp(HealJimakuApp):
         hl.setContentsMargins(18, 0, 8, 0)
         hl.setSpacing(4)
         wordmark = self._label("治幕", "wordmark")
-        sub = self._label("Heal-Jimaku", "sub")
+        sub = self._label("Hiromaku", "sub")
         hl.addWidget(wordmark)
         hl.addSpacing(8)
         hl.addWidget(sub, 0, Qt.AlignmentFlag.AlignBottom)
